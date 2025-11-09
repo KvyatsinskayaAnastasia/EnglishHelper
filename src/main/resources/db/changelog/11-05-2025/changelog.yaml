@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/11-05-2025/create_word.sql
+  - include:
+      file: db/changelog/11-05-2025/update_word.sql
+  - include:
+      file: db/changelog/11-05-2025/update_original_and_translation.sql
+  - include:
+      file: db/changelog/11-05-2025/add_word_user_id.sql
+  - include:
+      file: db/changelog/11-05-2025/fill_word_user_id.sql
+  - include:
+      file: db/changelog/11-05-2025/add_indexes_for_word.sql
+  - include:
+      file: db/changelog/11-05-2025/drop_chat_id_from_word.sql
+  - include:
+      file: db/changelog/11-05-2025/create_words_archive.sql
