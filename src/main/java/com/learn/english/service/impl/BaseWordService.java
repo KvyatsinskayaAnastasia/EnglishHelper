@@ -42,7 +42,7 @@ public class BaseWordService implements WordService {
                         PageRequest.of(0, size, Sort.by("repeatedCount").ascending()
                                 .and(Sort.by("repeatAt").ascending()))).stream()
                 .map(word -> new WordForRepeat(word.getOriginal(), word.getTranslation(),
-                        word.getExampleSentence(), word.getUserId(), word.getId(), false))
+                        word.getExampleSentence(), word.getUserId(), word.getId(), false, 0))
                 .toList();
     }
 
@@ -86,7 +86,7 @@ public class BaseWordService implements WordService {
         List<WordEO> randomPage = wordRepository.getRandomWordEOSByUserIdExcludeWordWithId(userId, null, size);
         return !CollectionUtils.isEmpty(randomPage) ? randomPage.stream()
                 .map(word -> new WordForRepeat(word.getOriginal(), word.getTranslation(),
-                        word.getExampleSentence(), word.getUserId(), word.getId(), false))
+                        word.getExampleSentence(), word.getUserId(), word.getId(), false, 0))
                 .toList() : Collections.emptyList();
     }
 

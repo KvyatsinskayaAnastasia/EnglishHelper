@@ -1,6 +1,7 @@
 package com.learn.english.handler.impl;
 
 import com.learn.english.handler.BotActionHandler;
+import com.learn.english.model.Icon;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
@@ -32,16 +33,16 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
 
     protected abstract String getQuestionText(WordForRepeat currentWord);
 
-    protected abstract String getRetryText(WordForRepeat currentWord);
+    protected abstract String getRetryText(UserState userState, String message);
 
     protected abstract List<String> getRandomWords(UserState userState, WordForRepeat word);
 
     protected abstract String getCorrectAnswer(WordForRepeat word);
 
     @Override
-    public SendMessage processAction(UserState userState, String message) {
+    public List<SendMessage> processAction(UserState userState, String message) {
         if (userState.getRepeatingState() == null) {
-            return handleInitialState(userState);
+            return List.of(handleInitialState(userState));
         }
 
         if (message != null) {
@@ -50,7 +51,7 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
             userState.setUserStatus(getUserStatus());
         }
 
-        return handleNextWord(userState);
+        return List.of(handleNextWord(userState));
     }
 
     protected abstract UserStatus getUserStatus();
@@ -62,51 +63,65 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 OPTIONS_BUTTONS_PER_ROW);
     }
 
-    protected SendMessage handleUserAnswer(UserState userState, String message) {
+    protected List<SendMessage> handleUserAnswer(UserState userState, String message) {
         try {
             if (isCorrectAnswer(userState, message)) {
-                handleCorrectAnswer(userState);
-                return handleNextWord(userState);
+                return List.of(handleCorrectAnswer(userState), handleNextWord(userState));
             } else {
-                return handleIncorrectAnswer(userState);
+                return List.of(handleWrongAnswer(userState, message));
             }
         } catch (NumberFormatException e) {
-            return handleInvalidInput(userState);
+            return List.of(handleInvalidInput(userState, message));
         }
     }
 
     protected boolean isCorrectAnswerByIndex(UserState userState, String message, String correctAnswer) {
-        int selectedIndex = Integer.parseInt(message) - 1;
-        String selectedText = userState.getRepeatingState()
-                .getRepeatingLabels()
-                .get(selectedIndex);
-
-        return selectedText.equalsIgnoreCase(correctAnswer);
+        return getSelectedText(userState, message).equalsIgnoreCase(correctAnswer);
     }
 
-    protected void handleCorrectAnswer(UserState userState) {
+    protected String getSelectedText(UserState userState, String message) {
+        var selectedIndex = Integer.parseInt(message) - 1;
+        return userState.getRepeatingState()
+                .getRepeatingLabels()
+                .get(selectedIndex);
+    }
+
+    protected void markWrongAnswer(UserState userState, String message) {
+        var selectedIndex = Integer.parseInt(message) - 1;
+        var selectedText = userState.getRepeatingState()
+                .getRepeatingLabels()
+                .get(selectedIndex);
+        userState.getRepeatingState()
+                .getRepeatingLabels().set(selectedIndex, selectedText.concat(" " + Icon.NOT.get()));
+    }
+
+    protected SendMessage handleCorrectAnswer(UserState userState) {
         RepeatingState repeatingState = userState.getRepeatingState();
         WordForRepeat currentWord = repeatingState.getCurrentRepeatingWord();
 
-        if (repeatingState.isIncreaseRepeatingCount()) {
-            wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
-        }
+        wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
         repeatingState.getRepeatingWords().remove(currentWord);
+
+        return SendMessage.builder()
+                .chatId(userState.getUserId())
+                .text(String.format("Правильно!\nСлово: %s\nПеревод: %s", currentWord.getOriginal(),
+                        currentWord.getTranslation()))
+                .build();
     }
 
-    protected SendMessage handleIncorrectAnswer(UserState userState) {
+    protected SendMessage handleWrongAnswer(UserState userState, String message) {
         userState.getRepeatingState().getCurrentRepeatingWord().setRepeatFailed(true);
+        markWrongAnswer(userState, message);
         return sendWithNumberButtons(userState.getUserId(),
-                getRetryText(userState.getRepeatingState().getCurrentRepeatingWord()),
+                getRetryText(userState, message),
                 userState.getRepeatingState().getRepeatingLabels(),
-                List.of(EXIT),
-                BUTTONS_PER_ROW);
+                List.of(EXIT), BUTTONS_PER_ROW);
     }
 
-    protected SendMessage handleInvalidInput(UserState userState) {
+    protected SendMessage handleInvalidInput(UserState userState, String message) {
         return sendWithNumberButtons(userState.getUserId(),
-                "Пожалуйста, выберите вариант из предложенных: " +
-                        getRetryText(userState.getRepeatingState().getCurrentRepeatingWord()),
+                "Ответ " + message + " отсутствует. Пожалуйста, выберите вариант из предложенных: " +
+                        getRetryText(userState, message),
                 userState.getRepeatingState().getRepeatingLabels(),
                 List.of(EXIT),
                 BUTTONS_PER_ROW);

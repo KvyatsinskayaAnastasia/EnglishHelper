@@ -19,4 +19,13 @@ public class WordState implements Serializable {
     private String original;
     private String translation;
     private String exampleSentence;
+
+    @Override
+    public String toString() {
+        return "WordState{" +
+                "original='" + original + '\'' +
+                ", translation='" + translation + '\'' +
+                ", exampleSentence='" + exampleSentence + '\'' +
+                '}';
+    }
 }

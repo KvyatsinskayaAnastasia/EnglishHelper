@@ -2,6 +2,7 @@ package com.learn.english.model;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.Setter;
 
 import java.io.Serializable;
@@ -12,6 +13,7 @@ import java.io.Serializable;
         include = JsonTypeInfo.As.PROPERTY,
         property = "@class")
 public class UserState implements Serializable {
+    @NonNull
     private UserStatus userStatus;
     private WordState currentWordState;
     private ProposesState proposesState;

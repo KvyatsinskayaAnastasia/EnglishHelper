@@ -38,8 +38,9 @@ public class RepeatingChoseOriginalActionHandler extends RepeatingActionHandler 
     }
 
     @Override
-    protected String getRetryText(WordForRepeat currentWord) {
-        return "Попробуйте еще раз: " + currentWord.getTranslation() + "\n";
+    protected String getRetryText(UserState userState, String message) {
+        return "Не правильный вариант: " + getSelectedText(userState, message)
+                + ".\nПопробуйте еще раз!\nВыберете слово, которое переводится как: " + userState.getRepeatingState().getCurrentRepeatingWord().getTranslation() + "\n";
     }
 
     @Override

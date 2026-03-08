@@ -3,7 +3,6 @@ package com.learn.english.handler.impl;
 import com.learn.english.exception.BadUserStatusException;
 import com.learn.english.handler.BotActionHandler;
 import com.learn.english.model.BotAction;
-import com.learn.english.model.ProposesState;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
 import com.learn.english.model.WordState;
@@ -12,15 +11,13 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
 import java.util.List;
 
-import static com.learn.english.model.BotAction.ADD_WORD_WITH_BOT_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
-import static com.learn.english.model.UserStatus.FILLING_ORIGINAL_WITH_BOT;
 
 @Component
-public class AddWordWithBotRequestOriginalActionHandler implements BotActionHandler {
+public class AddWordWithoutBotRequestOriginalActionHandler implements BotActionHandler {
     @Override
     public BotAction getBotAction() {
-        return ADD_WORD_WITH_BOT_REQUEST_ORIGINAL;
+        return BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
     }
 
     @Override
@@ -29,9 +26,8 @@ public class AddWordWithBotRequestOriginalActionHandler implements BotActionHand
             throw new BadUserStatusException(getBotAction(), userState.getUserStatus());
         }
         userState.setCurrentWordState(new WordState());
-        userState.setProposesState(new ProposesState());
-        userState.setUserStatus(FILLING_ORIGINAL_WITH_BOT);
-        return List.of(sendWithActionButtons(userState.getUserId(), BotAction.ADD_WORD_WITH_BOT_REQUEST_ORIGINAL.getAnswerMessage(),
+        userState.setUserStatus(UserStatus.FILLING_ORIGINAL_WITHOUT_BOT);
+        return List.of(sendWithActionButtons(userState.getUserId(), BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL.getAnswerMessage(),
                 List.of(EXIT), 1));
     }
 }

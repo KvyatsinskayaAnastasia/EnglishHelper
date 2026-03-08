@@ -7,6 +7,8 @@ import com.learn.english.model.UserStatus;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
+import java.util.List;
+
 @Component
 public class ExitActionHandler implements BotActionHandler {
     @Override
@@ -15,11 +17,12 @@ public class ExitActionHandler implements BotActionHandler {
     }
 
     @Override
-    public SendMessage processAction(UserState userState, String message) {
+    public List<SendMessage> processAction(UserState userState, String message) {
         userState.setCurrentWordState(null);
         userState.setProposesState(null);
         userState.setRepeatingState(null);
         userState.setUserStatus(UserStatus.NO_ACTIVITY);
-        return sendWithActionButtons(userState.getUserId(), "Выберите действие", BASE_OPTIONS, 2);
+        return List.of(sendWithActionButtons(userState.getUserId(),
+                BotAction.EXIT.getAnswerMessage(), BASE_OPTIONS, 2));
     }
 }

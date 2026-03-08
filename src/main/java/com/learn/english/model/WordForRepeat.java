@@ -22,8 +22,14 @@ public class WordForRepeat implements Serializable {
     private String exampleSentence;
     private Long userId;
     private UUID id;
+
     @Setter
     private boolean isRepeatFailed;
+    private int countOfAttempts;
+
+    public void increaseCountOfAttempts() {
+        countOfAttempts++;
+    }
 
     @Override
     public boolean equals(Object o) {

@@ -1,11 +1,14 @@
 package com.learn.english.handler.impl;
 
+import com.learn.english.exception.BadActionSentMessageException;
+import com.learn.english.exception.BadUserStatusException;
 import com.learn.english.handler.BotActionHandler;
 import com.learn.english.model.BotAction;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
 import com.learn.english.service.OllamaService;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -27,16 +30,34 @@ public class AddWordWithBotRequestExampleActionHandler implements BotActionHandl
     }
 
     @Override
-    public SendMessage processAction(UserState userState, String message) {
-        userState.getCurrentWordState().setTranslation(StringUtils.isNumeric(message)
-                ? userState.getProposesState().getTranslations().get(Integer.parseInt(message) - 1) : message);
-        userState.setUserStatus(UserStatus.FILLING_EXAMPLE);
+    public List<SendMessage> processAction(UserState userState, String message) {
+        if (userState.getUserStatus() != UserStatus.FILLING_TRANSLATION_WITH_BOT) {
+            throw new BadUserStatusException(getBotAction(), userState.getUserStatus());
+        }
+        if (StringUtils.isBlank(message)) {
+            throw new BadActionSentMessageException("Sent translation is empty");
+        }
+        if (userState.getProposesState() != null
+                && CollectionUtils.isNotEmpty(userState.getProposesState().getTranslations())
+                && StringUtils.isNumeric(message)) {
+            var numericAnswer = Integer.parseInt(message);
+            var translations = userState.getProposesState().getTranslations();
+            if (translations.size() >= numericAnswer) {
+                userState.getCurrentWordState().setTranslation(translations.get(numericAnswer - 1));
+            }
+        }
+        if (StringUtils.isBlank(userState.getCurrentWordState().getTranslation())) {
+            userState.getCurrentWordState().setTranslation(message);
+        }
+        userState.setUserStatus(UserStatus.FILLING_EXAMPLE_WITH_BOT);
         userState.getProposesState().setExamples(
                 ollamaService.proposeExamples(userState.getCurrentWordState().getOriginal(),
                         userState.getCurrentWordState().getTranslation())
         );
-        return userState.getProposesState().getExamples() != null
-                ? sendWithNumberButtons(userState.getUserId(), ADD_WORD_WITH_BOT_REQUEST_EXAMPLE.getMessage(), userState.getProposesState().getExamples(), List.of(EXIT, REGENERATE_EXAMPLES), 2)
-                : sendWithActionButtons(userState.getUserId(), "Бот ничего не придумал, введи пример ручками или перегенерь", List.of(EXIT, REGENERATE_EXAMPLES), 2);
+        return List.of(sendWithNumberButtons(userState.getUserId(),
+                String.format(ADD_WORD_WITH_BOT_REQUEST_EXAMPLE.getAnswerMessage(),
+                        userState.getCurrentWordState().getOriginal(),
+                        userState.getCurrentWordState().getTranslation()),
+                userState.getProposesState().getExamples(), List.of(EXIT, REGENERATE_EXAMPLES), 2));
     }
 }

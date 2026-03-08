@@ -31,16 +31,16 @@ public class RepeatingRandomActionHandler implements BotActionHandler {
     }
 
     @Override
-    public SendMessage processAction(UserState userState, String message) {
+    public List<SendMessage> processAction(UserState userState, String message) {
         var words = wordService.getRandomWordEOSByUserId(userState.getUserId(), ONE_REPEATING_ITERATION_SIZE);
 
         if (CollectionUtils.isEmpty(words)) {
-            return createNoWordsResponse(userState.getUserId());
+            return List.of(createNoWordsResponse(userState.getUserId()));
         }
 
         userState.setRepeatingState(new RepeatingState(new ArrayList<>(words),
                 null, null, false));
-        return createWordsResponse(userState.getUserId(), words);
+        return List.of(createWordsResponse(userState.getUserId(), words));
     }
 
     private SendMessage createNoWordsResponse(Long userId) {

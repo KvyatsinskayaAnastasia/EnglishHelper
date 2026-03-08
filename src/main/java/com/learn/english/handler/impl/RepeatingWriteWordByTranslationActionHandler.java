@@ -39,13 +39,15 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
 
     @Override
     protected String getQuestionText(WordForRepeat currentWord) {
-        return "Слово переводится как: " + currentWord.getTranslation();
+        return "Введите слово, которое переводится как: " + currentWord.getTranslation();
     }
 
     @Override
-    protected String getRetryText(WordForRepeat currentWord) {
-        return "Попробуйте еще! Слово: " + currentWord.getTranslation()
-                + ", первые буквы: " + currentWord.getOriginal().substring(0, Math.min(3, currentWord.getOriginal().length()));
+    protected String getRetryText(UserState userState, String message) {
+        var currentWord = userState.getRepeatingState().getCurrentRepeatingWord();
+        return "Не правильный ответ: " + message + "\nПопробуйте еще!\nВведите слово, которое переводится как: " + currentWord.getTranslation()
+                + ".\nподсказка: " + currentWord.getOriginal().substring(0,
+                Math.min(currentWord.getCountOfAttempts(), currentWord.getOriginal().length()));
     }
 
     @Override
@@ -66,10 +68,12 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
     }
 
     @Override
-    protected SendMessage handleIncorrectAnswer(UserState userState) {
-        userState.getRepeatingState().getCurrentRepeatingWord().setRepeatFailed(true);
+    protected SendMessage handleWrongAnswer(UserState userState, String message) {
+        var currentRepeatingWord = userState.getRepeatingState().getCurrentRepeatingWord();
+        currentRepeatingWord.setRepeatFailed(true);
+        currentRepeatingWord.increaseCountOfAttempts();
         return sendWithActionButtons(userState.getUserId(),
-                getRetryText(userState.getRepeatingState().getCurrentRepeatingWord()),
+                getRetryText(userState, message),
                 List.of(EXIT), BUTTONS_PER_ROW);
     }
 

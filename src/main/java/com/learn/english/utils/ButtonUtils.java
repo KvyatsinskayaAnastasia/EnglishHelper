@@ -17,7 +17,7 @@ public class ButtonUtils {
 
     public static SendMessage sendWithNumberButtons(Long userId, String message, List<String> buttonLabels,
                                                     List<BotAction> botActions, int actionRowSize) {
-        String fullText = createNumberedText(message, buttonLabels);
+        String fullText = addButtonLabelsToText(message, buttonLabels);
         InlineKeyboardMarkup keyboard = createCombinedKeyboard(buttonLabels.size(), botActions, actionRowSize);
         return createSendMessage(userId, fullText, keyboard);
     }
@@ -27,7 +27,7 @@ public class ButtonUtils {
         return createSendMessage(userId, text, keyboard);
     }
 
-    private static String createNumberedText(String message, List<String> buttonLabels) {
+    private static String addButtonLabelsToText(String message, List<String> buttonLabels) {
         if (CollectionUtils.isEmpty(buttonLabels)) return message;
 
         StringBuilder sb = new StringBuilder(message).append("\n");
@@ -71,7 +71,7 @@ public class ButtonUtils {
     }
 
     private static InlineKeyboardButton createActionButton(BotAction action) {
-        return createButton(action.getMessage(), action.getCode());
+        return createButton(action.getButtonMessage(), action.getCode());
     }
 
     private static InlineKeyboardButton createButton(String text, String callbackData) {

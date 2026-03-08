@@ -9,12 +9,14 @@ import com.learn.english.service.UserStateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -41,11 +43,11 @@ public class BaseTelegramService implements TelegramService {
     private static final String BAD_ACTION = "Что-то не то нажато =.=";
 
     private final Map<UserStatus, BotAction> nextBotActions = Map.of(
-            UserStatus.FILLING_WORD, BotAction.ADD_WORD_WITH_BOT_REQUEST_TRANSLATION,
-            UserStatus.FILLING_TRANSLATION, BotAction.ADD_WORD_WITH_BOT_REQUEST_EXAMPLE,
-            UserStatus.FILLING_EXAMPLE, BotAction.ADD_WORD_SAVE_WORD,
-            UserStatus.FILLING_WORD_WITHOUT_BOT, BotAction.ADD_WORD_REQUEST_TRANSLATION,
-            UserStatus.FILLING_TRANSLATION_WITHOUT_BOT, BotAction.ADD_WORD_REQUEST_EXAMPLE,
+            UserStatus.FILLING_ORIGINAL_WITH_BOT, BotAction.ADD_WORD_WITH_BOT_REQUEST_TRANSLATION,
+            UserStatus.FILLING_TRANSLATION_WITH_BOT, BotAction.ADD_WORD_WITH_BOT_REQUEST_EXAMPLE,
+            UserStatus.FILLING_EXAMPLE_WITH_BOT, BotAction.ADD_WORD_SAVE_WORD,
+            UserStatus.FILLING_ORIGINAL_WITHOUT_BOT, BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_TRANSLATION,
+            UserStatus.FILLING_TRANSLATION_WITHOUT_BOT, BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_EXAMPLE,
             UserStatus.FILLING_EXAMPLE_WITHOUT_BOT, BotAction.ADD_WORD_SAVE_WORD,
             UserStatus.REPEATING_WRITE_WORD_BY_TRANSLATION, BotAction.REPEATING_WRITE_WORD_BY_TRANSLATION,
             UserStatus.REPEATING_CHOSE_TRANSLATION, BotAction.REPEATING_CHOSE_TRANSLATION,
@@ -61,9 +63,9 @@ public class BaseTelegramService implements TelegramService {
     @Override
     public void processScheduledRepeat(long userId) {
         UserState userState = userStateService.getUserState(userId);
-        SendMessage sendMessage = botActionHandlers.get(SCHEDULED_REPEAT)
+        List<SendMessage> sendMessages = botActionHandlers.get(SCHEDULED_REPEAT)
                 .processAction(userState, null);
-        sendMessageIfNotNull(sendMessage);
+        sendMessageIfNotEmpty(sendMessages);
         userStateService.saveUserState(userState);
     }
 
@@ -83,18 +85,18 @@ public class BaseTelegramService implements TelegramService {
         String text = getText(update, isCallback);
         BotAction botAction = nextBotActions.get(userState.getUserStatus());
         if (botAction != null && requiresWaitingMessage(botAction)) {
-            log.info("Send waiting message for command: {}", botAction.getMessage());
+            log.info("Send waiting message for command: {}", botAction.getButtonMessage());
             sendWaitingMessage(userId);
         }
 
-        SendMessage sendMessage = botActionHandlers.getOrDefault(
+        List<SendMessage> sendMessages = botActionHandlers.getOrDefault(
                         isCallback ?
                                 determineCallbackAction(botAction, text, userId)
                                 : botAction,
                         botActionHandlers.get(BotAction.HELP))
                 .processAction(userState, !isCallback || botAction != null ? text : null);
-        var messageId = sendMessageIfNotNull(sendMessage);
-        if (sendMessage.getReplyMarkup() != null) {
+        var messageId = sendMessageIfNotEmpty(sendMessages);
+        if (sendMessages.get(sendMessages.size() - 1).getReplyMarkup() != null) {
             if (userState.getLastBotCommandMessageId() != null) {
                 log.info("Added new bot command buttons. Clean bot command buttons");
                 cleanBotMessage(userState);
@@ -137,11 +139,19 @@ public class BaseTelegramService implements TelegramService {
         sendMessage(SendMessage.builder().chatId(userId).text(WAITING_MESSAGE).build());
     }
 
-    private Integer sendMessageIfNotNull(SendMessage message) {
-        if (message == null) {
+    private Integer sendMessageIfNotEmpty(List<SendMessage> messages) {
+        if (CollectionUtils.isEmpty(messages)) {
             return null;
         }
-        return sendMessage(message);
+        return sendMessages(messages);
+    }
+
+    private Integer sendMessages(List<SendMessage> messages) {
+        List<Integer> messageIds = new ArrayList<>();
+        for (SendMessage message : messages) {
+            messageIds.add(sendMessage(message));
+        }
+        return messageIds.get(messageIds.size() - 1);
     }
 
     private void cleanBotMessage(UserState userState) {
