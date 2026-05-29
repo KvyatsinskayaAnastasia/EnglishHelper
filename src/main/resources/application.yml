@@ -16,8 +16,8 @@ spring:
       database: 0
       timeout: 3000ms
 bot:
-  name:
-  token:
+  name: ${TELEGRAM_BOT_USERNAME:}
+  token: ${TELEGRAM_BOT_TOKEN:}
 #debug: true
 #logging:
 #  level:
