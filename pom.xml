@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.learn</groupId>
     <artifactId>english</artifactId>
-    <version>0.0.1</version>
+    <version>latest</version>
     <name>EnglishHelperBot</name>
     <description>Bot that help to learn english</description>
     <url/>

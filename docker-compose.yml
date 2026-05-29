@@ -1,6 +1,6 @@
 services:
   english-back:
-    image: english:0.0.1
+    image: english:latest
     container_name: english-back
     build:
       context: .
