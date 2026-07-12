@@ -21,12 +21,10 @@ public class BaseUserStateService implements UserStateService {
     public UserState getUserState(Long userId) {
         String key = getKey(userId);
         UserState state = redisTemplate.opsForValue().get(key);
-
         if (state == null) {
             state = new UserState(userId);
             saveUserState(state);
         }
-
         return state;
     }
 

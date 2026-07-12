@@ -1,6 +1,7 @@
 package com.learn.english.configuration;
 
 import com.learn.english.model.UserState;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -12,10 +13,13 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfiguration {
+    @Value("${spring.redis.data.host}")
+    private String host;
+
     @Bean
     public LettuceConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName("redis");
+        config.setHostName(host);
         config.setPort(6379);
         config.setDatabase(0);
         return new LettuceConnectionFactory(config);

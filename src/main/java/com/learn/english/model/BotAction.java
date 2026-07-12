@@ -14,7 +14,7 @@ public enum BotAction {
     ADD_WORD_SAVE_WORD("/add_word_save_word", null, "Добавлено слово %s, в значении %s.\nПример использования: %s.\nВыберите действие:"),
     REPEATING_PLANNED("/repeating_planned", "Повторить по плану", null),
     REPEATING_RANDOM("/repeating_random", "Что-нибудь да повторить", null),
-    REPEATING_CHOSE_TRANSLATION("/repeating_chose_translation", "Повторение: выбрать перевод", null),
+    REPEATING_CHOOSE_TRANSLATION("/repeating_choose_translation", "Повторение: выбрать перевод", null),
     REPEATING_CHOOSE_ORIGINAL("/repeating_choose_original", "Повторение: выбрать слово по переводу", null),
     REPEATING_WRITE_WORD_BY_TRANSLATION("/repeating_write_word_by_translation", "Повторение: написать слово по переводу", null),
     REGENERATE_TRANSLATIONS("/regenerate_translations", "Перегенерировать переводы", "Переводы перегенерированы!\nДобавление нового слова.\nВведите перевод слова %s или выберите из предложенных ботом"),
@@ -32,7 +32,7 @@ public enum BotAction {
         this.answerMessage = answerMessage;
     }
 
-    public static BotAction getOptionFromValue(String code) {
+    public static BotAction getOptionFromCode(String code) {
         for (BotAction opt : BotAction.values()) {
             if (opt.code.equals(code)) {
                 return opt;

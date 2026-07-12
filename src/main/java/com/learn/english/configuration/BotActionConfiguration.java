@@ -1,6 +1,6 @@
 package com.learn.english.configuration;
 
-import com.learn.english.handler.BotActionHandler;
+import com.learn.english.action.handler.BotActionHandler;
 import com.learn.english.model.BotAction;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

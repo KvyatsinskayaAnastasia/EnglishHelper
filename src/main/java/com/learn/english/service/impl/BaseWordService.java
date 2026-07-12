@@ -23,6 +23,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BaseWordService implements WordService {
+    private static final int REPEATED_COUNT_FOR_LEARNED = 8;
+
     private final WordRepository wordRepository;
     private final WordMapper wordMapper;
 
@@ -61,8 +63,14 @@ public class BaseWordService implements WordService {
         wordEO.setRepeatedCount(isRepeatFailed
                 ? Math.max(0, wordEO.getRepeatedCount() - 1)
                 : wordEO.getRepeatedCount() + 1);
-        wordEO.setRepeatAt(LocalDateTime.now().plusDays(wordEO.getRepeatedCount()));
+        wordEO.setRepeatAt(REPEATED_COUNT_FOR_LEARNED != wordEO.getRepeatedCount() ?
+                LocalDateTime.now().plusDays(getDelayToNextRepeat(wordEO.getRepeatedCount()))
+                : null);
         wordRepository.save(wordEO);
+    }
+
+    private int getDelayToNextRepeat(int repeatCount) {
+        return repeatCount < 5 ? repeatCount : (repeatCount % 4) * 7;
     }
 
     @Override
@@ -93,7 +101,7 @@ public class BaseWordService implements WordService {
     @Override
     @Transactional
     public List<WordEO> deleteLearnedWords() {
-        var learnedWords = wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(10);
+        var learnedWords = wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(REPEATED_COUNT_FOR_LEARNED);
         wordRepository.deleteAll(learnedWords);
         return learnedWords;
     }

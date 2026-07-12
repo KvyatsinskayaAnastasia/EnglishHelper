@@ -21,4 +21,5 @@ public class RepeatingState implements Serializable {
     private WordForRepeat currentRepeatingWord;
     private List<String> repeatingLabels;
     private boolean isIncreaseRepeatingCount;
+    private BotAction chosenRepeatingGame;
 }

@@ -8,13 +8,9 @@ spring:
     driver-class-name: org.postgresql.Driver
   application:
    name: EnglishHelperBot
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: Cat77Dog99
-      database: 0
-      timeout: 3000ms
+  redis:
+    data:
+      host: ${REDIS_HOST:localhost}
 bot:
   name: ${TELEGRAM_BOT_USERNAME:}
   token: ${TELEGRAM_BOT_TOKEN:}
