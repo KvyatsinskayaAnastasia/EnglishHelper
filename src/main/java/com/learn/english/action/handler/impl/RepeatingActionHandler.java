@@ -8,7 +8,6 @@ import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.service.WordService;
-import org.jetbrains.annotations.NotNull;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
@@ -25,11 +24,6 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     protected static final int RANDOM_WORDS_COUNT = 3;
     protected static final int BUTTONS_PER_ROW = 1;
     protected static final int OPTIONS_BUTTONS_PER_ROW = 2;
-    protected static final List<@NotNull UserStatus> GAME_CHOSEN_USER_STATUSES = List.of(
-            UserStatus.REPEATING_CHOOSE_ORIGINAL,
-            UserStatus.REPEATING_CHOOSE_TRANSLATION,
-            UserStatus.REPEATING_WRITE_WORD_BY_TRANSLATION
-    );
 
     protected final WordService wordService;
     protected final TelegramHelperService telegramHelperService;
@@ -58,8 +52,8 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
             handleUserAnswer(userState, update);
         } else {
             userState.getRepeatingState().setChosenRepeatingGame(getBotAction());
+            handleNextWord(userState);
         }
-        handleNextWord(userState);
     }
 
     protected void handleUserAnswer(UserState userState, Update update) {
@@ -159,8 +153,8 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 String.format("Отлично! Осталось повторить: %d", countWordsForRepeat) :
                 "Все слова повторены!";
 
-        telegramHelperService.sendMessage(
-                sendWithActionButtons(userState.getUserId(), message, BASE_OPTIONS, OPTIONS_BUTTONS_PER_ROW));
+        userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(
+                sendWithActionButtons(userState.getUserId(), message, BASE_OPTIONS, OPTIONS_BUTTONS_PER_ROW)));
     }
 
     protected void prepareNextWord(UserState userState) {

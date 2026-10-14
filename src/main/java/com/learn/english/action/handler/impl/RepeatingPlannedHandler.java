@@ -23,7 +23,6 @@ import static com.learn.english.utils.ButtonUtils.sendWithActionButtons;
 @RequiredArgsConstructor
 public class RepeatingPlannedHandler implements BotActionHandler {
     private static final Integer ONE_REPEATING_ITERATION_SIZE = 10;
-
     private final UserStateService userStateService;
     private final TelegramHelperService telegramHelperService;
     private final WordService wordService;
