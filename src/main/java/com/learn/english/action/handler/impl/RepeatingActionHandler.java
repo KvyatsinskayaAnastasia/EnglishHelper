@@ -66,7 +66,10 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 handleWrongAnswer(userState, update, answer);
             }
         } catch (NumberFormatException e) {
-            handleInvalidInput(userState, getSelectedText(userState, update));
+            String rawAnswer = update.getCallbackQuery() != null
+                    ? update.getCallbackQuery().getData()
+                    : update.getMessage().getText();
+            handleInvalidInput(userState, rawAnswer);
         }
     }
 
@@ -136,6 +139,7 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     protected void handleNextWord(UserState userState) {
         if (isAllWordsRepeated(userState)) {
             handleCompletion(userState);
+            return;
         }
         prepareNextWord(userState);
         generateQuestionMessage(userState);

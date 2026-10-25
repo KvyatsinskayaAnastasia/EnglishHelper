@@ -14,7 +14,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import java.util.List;
 import java.util.Map;
 
-import static com.learn.english.model.BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_TRANSLATION;
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_TRANSLATION;
 import static com.learn.english.model.BotAction.EXIT;
 
 @Component
@@ -43,7 +43,7 @@ public class FillingOriginalWithoutBotHandler implements UserStatusHandler {
         userState.getCurrentWordState().setOriginal(update.getMessage().getText());
         userState.setUserStatus(UserStatus.FILLING_TRANSLATION_WITHOUT_BOT);
         userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(sendWithActionButtons(userState.getUserId(),
-                String.format(ADD_WORD_WITHOUT_BOT_REQUEST_TRANSLATION.getAnswerMessage(),
+                String.format(ADD_WORD_REQUEST_TRANSLATION.getAnswerMessage(),
                         userState.getCurrentWordState().getOriginal()),
                 List.of(EXIT), 1)));
         userStateService.saveUserState(userState);

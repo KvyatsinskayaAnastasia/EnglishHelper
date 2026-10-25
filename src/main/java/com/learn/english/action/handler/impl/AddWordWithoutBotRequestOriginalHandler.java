@@ -12,7 +12,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.List;
 
-import static com.learn.english.model.BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.UserStatus.FILLING_ORIGINAL_WITHOUT_BOT;
 import static com.learn.english.utils.ButtonUtils.sendWithActionButtons;
@@ -25,7 +25,7 @@ public class AddWordWithoutBotRequestOriginalHandler implements BotActionHandler
 
     @Override
     public BotAction getBotAction() {
-        return ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
+        return ADD_WORD_REQUEST_ORIGINAL;
     }
 
     @Override

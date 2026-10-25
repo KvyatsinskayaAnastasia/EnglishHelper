@@ -14,11 +14,6 @@ public interface UserStatusHandler {
 
     void processAction(UserState userState, Update update);
 
-    default SendMessage sendWithNumberButtons(Long userId, String message, List<String> buttonLabels,
-                                              List<BotAction> botActions, int actionRowSize) {
-        return ButtonUtils.sendWithNumberButtons(userId, message, buttonLabels, botActions, actionRowSize);
-    }
-
     default SendMessage sendWithActionButtons(Long userId, String text, List<BotAction> botActions, int rowSize) {
         return ButtonUtils.sendWithActionButtons(userId, text, botActions, rowSize);
     }

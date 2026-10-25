@@ -1,5 +1,6 @@
 package com.learn.english.service.impl;
 
+import com.learn.english.exception.TelegramOperationException;
 import com.learn.english.service.TelegramHelperService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,34 +15,43 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 @RequiredArgsConstructor
 public class BaseTelegramHelperService implements TelegramHelperService {
 
-    private static final String BAD_ACTION = "Что-то не то нажато =.=";
-    private static final String WAITING_MESSAGE = "Бот жив, но долго думает. Терпение...";
-
     private final TelegramClient telegramClient;
 
-    private void sendWaitingMessage(Long userId) {
-        sendMessage(SendMessage.builder().chatId(userId).text(WAITING_MESSAGE).build());
-    }
-
     @Override
-    public void removeKeyboard(Long userId, Integer lastBotCommandMessageId) {
-        EditMessageReplyMarkup editMarkup = new EditMessageReplyMarkup();
-        editMarkup.setChatId(userId);
-        editMarkup.setMessageId(lastBotCommandMessageId);
-        editMarkup.setReplyMarkup(null);
+    public Integer sendMessage(SendMessage message) {
+        if (message == null) {
+            throw new IllegalArgumentException("Couldn't send null message");
+        }
+
         try {
-            telegramClient.execute(editMarkup);
+            Integer messageId =  telegramClient.execute(message).getMessageId();
+            log.debug("Message sent: chatId={}, messageId={}", message.getChatId(), messageId);
+            return messageId;
         } catch (TelegramApiException e) {
-            throw new RuntimeException("Telegram API error", e);
+            log.error("Failed to send message: chatId={}", message.getChatId(), e);
+            throw new TelegramOperationException("sendMessage", message.getChatId(), null, e);
         }
     }
 
     @Override
-    public Integer sendMessage(SendMessage message) {
+    public void removeKeyboard(Long chatId, Integer lastBotCommandMessageId) {
+        if (chatId == null || lastBotCommandMessageId == null) {
+            log.warn("Couldn't remove inline keyboard: chatId={}, messageId={}", chatId,
+                    lastBotCommandMessageId);
+            return;
+        }
+
+        EditMessageReplyMarkup editMarkup = new EditMessageReplyMarkup();
+        editMarkup.setChatId(chatId);
+        editMarkup.setMessageId(lastBotCommandMessageId);
+        editMarkup.setReplyMarkup(null);
+
         try {
-            return telegramClient.execute(message).getMessageId();
+            telegramClient.execute(editMarkup);
+            log.debug("Inline keyboard removed: chatId={}, messageId={}", chatId, lastBotCommandMessageId);
         } catch (TelegramApiException e) {
-            throw new RuntimeException("Telegram API error", e);
+            log.error("Failed to remove inline keyboard: chatId={}, messageId={}", chatId, lastBotCommandMessageId, e);
+            throw new TelegramOperationException("removeKeyboard", chatId, lastBotCommandMessageId, e);
         }
     }
 }

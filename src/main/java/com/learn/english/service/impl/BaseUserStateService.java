@@ -1,7 +1,6 @@
 package com.learn.english.service.impl;
 
 import com.learn.english.model.UserState;
-import com.learn.english.model.UserStatus;
 import com.learn.english.service.UserStateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -34,42 +33,7 @@ public class BaseUserStateService implements UserStateService {
         redisTemplate.opsForValue().set(key, state, TTL_HOURS, TimeUnit.HOURS);
     }
 
-    @Override
-    public void updateUserStatus(Long userId, UserStatus status) {
-        UserState state = getUserState(userId);
-        state.setUserStatus(status);
-        saveUserState(state);
-    }
-
-    @Override
-    public void clearUserState(Long userId) {
-        String key = getKey(userId);
-        UserState state = new UserState(userId);
-        state.setUserStatus(UserStatus.NO_ACTIVITY);
-        redisTemplate.opsForValue().set(key, state, TTL_HOURS, TimeUnit.HOURS);
-    }
-
-    @Override
-    public void deleteUserState(Long userId) {
-        String key = getKey(userId);
-        redisTemplate.delete(key);
-    }
-
-    @Override
-    public boolean userExists(Long userId) {
-        String key = getKey(userId);
-        return redisTemplate.hasKey(key);
-    }
-
     private String getKey(Long userId) {
         return KEY_PREFIX + userId;
-    }
-
-    @Override
-    public void extendUserStateTTL(Long userId) {
-        String key = getKey(userId);
-        if (redisTemplate.hasKey(key)) {
-            redisTemplate.expire(key, TTL_HOURS, TimeUnit.HOURS);
-        }
     }
 }

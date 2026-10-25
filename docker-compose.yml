@@ -12,8 +12,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
@@ -53,33 +51,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    volumes:
-      - ollama-data:/root/.ollama
-    pull_policy: always
-    tty: true
-    healthcheck:
-      test: [ "CMD-SHELL", "bash", "-c", "{ printf >&3 'GET / HTTP/1.0\\r\\n\\r\\n'; cat <&3; } 3<>/dev/tcp/localhost/11434 | grep 'Ollama is' || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
-    restart: unless-stopped
 volumes:
   db-data:
   redis-data:
-  ollama-data:

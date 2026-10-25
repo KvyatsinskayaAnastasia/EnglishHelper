@@ -17,8 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.learn.english.model.BotAction.ADD_WORD_SAVE_WORD;
-import static com.learn.english.model.BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
-import static com.learn.english.model.BotAction.ADD_WORD_WITH_BOT_REQUEST_ORIGINAL;
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
 import static com.learn.english.model.BotAction.REPEATING_RANDOM;
@@ -30,8 +29,7 @@ public class FillingExampleWithoutBotHandler implements UserStatusHandler {
             EXIT
     );
     private static final List<BotAction> BASE_OPTIONS = List.of(
-            ADD_WORD_WITH_BOT_REQUEST_ORIGINAL,
-            ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL,
+            ADD_WORD_REQUEST_ORIGINAL,
             REPEATING_PLANNED,
             REPEATING_RANDOM
     );

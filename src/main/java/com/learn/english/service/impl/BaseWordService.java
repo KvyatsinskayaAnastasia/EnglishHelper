@@ -99,7 +99,6 @@ public class BaseWordService implements WordService {
     }
 
     @Override
-    @Transactional
     public List<WordEO> deleteLearnedWords() {
         var learnedWords = wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(REPEATED_COUNT_FOR_LEARNED);
         wordRepository.deleteAll(learnedWords);

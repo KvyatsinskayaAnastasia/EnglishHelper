@@ -14,8 +14,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import java.util.List;
 import java.util.Map;
 
-import static com.learn.english.model.BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
-import static com.learn.english.model.BotAction.ADD_WORD_WITH_BOT_REQUEST_ORIGINAL;
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.HELP;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
 import static com.learn.english.model.BotAction.REPEATING_RANDOM;
@@ -24,8 +23,7 @@ import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 @RequiredArgsConstructor
 public class NoActivityHandler implements UserStatusHandler {
     private static final List<BotAction> ENABLED_NO_ACTIVITY_BOT_ACTIONS = List.of(
-            ADD_WORD_WITH_BOT_REQUEST_ORIGINAL,
-            ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL,
+            ADD_WORD_REQUEST_ORIGINAL,
             REPEATING_PLANNED,
             REPEATING_RANDOM
     );

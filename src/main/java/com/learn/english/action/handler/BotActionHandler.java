@@ -6,8 +6,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.List;
 
-import static com.learn.english.model.BotAction.ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL;
-import static com.learn.english.model.BotAction.ADD_WORD_WITH_BOT_REQUEST_ORIGINAL;
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_ORIGINAL;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
@@ -17,8 +16,7 @@ import static com.learn.english.model.BotAction.REPEATING_WRITE_WORD_BY_TRANSLAT
 
 public interface BotActionHandler {
     List<BotAction> BASE_OPTIONS = List.of(
-            ADD_WORD_WITH_BOT_REQUEST_ORIGINAL,
-            ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL,
+            ADD_WORD_REQUEST_ORIGINAL,
             REPEATING_PLANNED,
             REPEATING_RANDOM);
     List<BotAction> REPEATING_OPTIONS = List.of(
@@ -26,9 +24,7 @@ public interface BotActionHandler {
             REPEATING_CHOOSE_ORIGINAL,
             REPEATING_WRITE_WORD_BY_TRANSLATION,
             EXIT);
-    List<BotAction> ADD_OPTIONS = List.of(
-            ADD_WORD_WITH_BOT_REQUEST_ORIGINAL,
-            ADD_WORD_WITHOUT_BOT_REQUEST_ORIGINAL);
+    List<BotAction> ADD_OPTIONS = List.of(ADD_WORD_REQUEST_ORIGINAL);
 
     BotAction getBotAction();
 
