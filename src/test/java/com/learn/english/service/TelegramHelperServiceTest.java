@@ -10,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -129,6 +130,41 @@ public class TelegramHelperServiceTest {
                     .isInstanceOf(TelegramOperationException.class)
                     .hasCause(cause)
                     .hasMessageContaining("removeKeyboard");
+        }
+    }
+
+    @Nested
+    @DisplayName("answerCallbackQuery")
+    class AnswerCallbackQueryTests {
+
+        @Test
+        @DisplayName("confirms the callback so the client stops the loading indicator")
+        void answerCallbackQuery_executesWithId() throws TelegramApiException {
+            service.answerCallbackQuery("cb-1");
+
+            ArgumentCaptor<AnswerCallbackQuery> captor = ArgumentCaptor.forClass(AnswerCallbackQuery.class);
+            verify(telegramClient).execute(captor.capture());
+            assertThat(captor.getValue().getCallbackQueryId()).isEqualTo("cb-1");
+        }
+
+        @Test
+        @DisplayName("does not call Telegram when the callback id is missing")
+        void answerCallbackQuery_blank_doesNothing() {
+            service.answerCallbackQuery(null);
+            service.answerCallbackQuery("  ");
+
+            verifyNoInteractions(telegramClient);
+        }
+
+        @Test
+        @DisplayName("logs a Telegram error and does not fail the update")
+        void answerCallbackQuery_telegramError_doesNotThrow() throws TelegramApiException {
+            when(telegramClient.execute(any(AnswerCallbackQuery.class)))
+                    .thenThrow(new TelegramApiException("callback failed"));
+
+            service.answerCallbackQuery("cb-1");
+
+            verify(telegramClient).execute(any(AnswerCallbackQuery.class));
         }
     }
 }

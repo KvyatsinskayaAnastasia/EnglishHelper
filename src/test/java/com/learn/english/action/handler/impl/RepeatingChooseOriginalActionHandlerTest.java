@@ -105,7 +105,7 @@ class RepeatingChooseOriginalActionHandlerTest {
             assertThat(callbackData(message)).containsExactly("1", "2", "3", EXIT.getCode());
             assertButtonRows(message, 3, 1);
             assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
 
         @Test
@@ -139,7 +139,7 @@ class RepeatingChooseOriginalActionHandlerTest {
                     REPEATING_PLANNED.getCode(),
                     REPEATING_RANDOM.getCode());
             verify(wordService, never()).getRandomOriginalsByUserId(any(), any(), any());
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
     }
 
@@ -160,7 +160,7 @@ class RepeatingChooseOriginalActionHandlerTest {
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(dog);
             assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
             assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("ant", "dog");
-            verify(wordService).updateRepeatedWord(APPLE_ID, false);
+            verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, false);
             List<SendMessage> messages = sentMessages(telegramHelperService);
             assertThat(messages).hasSize(2);
             assertThat(messages.get(0).getText()).isEqualTo("Правильно!\nСлово: apple\nПеревод: яблоко");
@@ -179,7 +179,7 @@ class RepeatingChooseOriginalActionHandlerTest {
 
             handler.processAction(userState, textUpdate("APPLE"));
 
-            verify(wordService).updateRepeatedWord(APPLE_ID, true);
+            verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, true);
             assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
             assertThat(userState.getRepeatingState()).isNull();
             List<SendMessage> messages = sentMessages(telegramHelperService);
@@ -205,7 +205,7 @@ class RepeatingChooseOriginalActionHandlerTest {
             assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly(marked, "apple", "dog");
             assertThat(apple.isRepeatFailed()).isTrue();
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
             SendMessage message = onlyMessage(telegramHelperService);
             assertThat(message.getText()).isEqualTo(
                     "Не правильный вариант: ant.\nПопробуйте еще раз!\nВыберете слово, которое переводится как: яблоко\n\n"
@@ -269,14 +269,17 @@ class RepeatingChooseOriginalActionHandlerTest {
         }
 
         @Test
-        @DisplayName("fails when the option number is outside the list")
-        void processAction_optionOutOfRange_throws() {
+        @DisplayName("asks to pick a listed option when the option number is outside the list")
+        void processAction_optionOutOfRange_asksToChoose() {
             WordForRepeat apple = word(APPLE_ID, "apple", "cat");
             UserState userState = playing(apple, List.of(apple), List.of("ant", "apple", "dog"));
 
-            assertThatThrownBy(() -> handler.processAction(userState, callbackUpdate("9")))
-                    .isInstanceOf(IndexOutOfBoundsException.class);
-            verify(telegramHelperService, never()).sendMessage(any());
+            handler.processAction(userState, callbackUpdate("9"));
+
+            assertThat(apple.isRepeatFailed()).isFalse();
+            assertThat(onlyMessage(telegramHelperService).getText()).startsWith(
+                    "Ответ 9 отсутствует. Пожалуйста, выберите вариант из предложенных:");
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
     }
 

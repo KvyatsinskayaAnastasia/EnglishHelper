@@ -1,6 +1,8 @@
 package com.learn.english.action.handler.impl;
 
+import com.learn.english.configuration.UserStateRedisSerializer;
 import com.learn.english.entity.WordEO;
+import com.learn.english.exception.TelegramOperationException;
 import com.learn.english.mapper.WordMapper;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
@@ -18,8 +20,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -34,8 +37,10 @@ import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.word;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -67,7 +72,7 @@ class RepeatingAnswerIntervalTest {
     @BeforeEach
     void setUp() {
         handler = new RepeatingChooseTranslationActionHandler(
-                new BaseWordService(wordRepository, wordMapper, wordArchiveService),
+                new BaseWordService(wordRepository, wordMapper, wordArchiveService, Clock.systemDefaultZone()),
                 telegramHelperService,
                 random);
         stubSend(telegramHelperService);
@@ -145,9 +150,24 @@ class RepeatingAnswerIntervalTest {
         verify(wordRepository, times(1)).save(card);
     }
 
+    @Test
+    @DisplayName("a failed correct-answer message does not change the card")
+    void correctAnswer_whenMessageFails_leavesTheCard() {
+        WordEO card = storedWord(2, LocalDateTime.of(2026, 10, 1, 8, 0));
+        doThrow(new TelegramOperationException("sendMessage", USER_ID, null, new RuntimeException("down")))
+                .when(telegramHelperService).sendMessage(any());
+
+        assertThatThrownBy(() -> handler.processAction(playing(true), callbackUpdate("1")))
+                .isInstanceOf(TelegramOperationException.class);
+
+        assertThat(card.getRepeatedCount()).isEqualTo(2);
+        assertThat(card.getRepeatAt()).isEqualTo(LocalDateTime.of(2026, 10, 1, 8, 0));
+        verify(wordRepository, never()).save(any());
+    }
+
     private static UserState redisRoundTrip(UserState userState) {
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
-        return serializer.deserialize(serializer.serialize(userState), UserState.class);
+        Jackson2JsonRedisSerializer<UserState> serializer = UserStateRedisSerializer.create();
+        return serializer.deserialize(serializer.serialize(userState));
     }
 
     private static WordEO storedWord(int repeatedCount, LocalDateTime repeatAt) {

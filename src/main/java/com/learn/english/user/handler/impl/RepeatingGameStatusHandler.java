@@ -48,8 +48,11 @@ abstract class RepeatingGameStatusHandler implements UserStatusHandler {
     }
 
     private void delegate(BotAction action, UserState userState, Update update) {
-        botActionHandlers.get(action).processAction(userState, update);
-        userStateService.saveUserState(userState);
+        try {
+            botActionHandlers.get(action).processAction(userState, update);
+        } finally {
+            userStateService.saveUserState(userState);
+        }
     }
 
     private static BotAction chosenRepeatingGame(UserState userState) {

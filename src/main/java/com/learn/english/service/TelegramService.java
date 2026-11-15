@@ -7,4 +7,6 @@ public interface TelegramService {
     void processUpdate(Update update);
 
     void processScheduledRepeat(long userId);
+
+    void notifyProcessingFailed(long chatId);
 }

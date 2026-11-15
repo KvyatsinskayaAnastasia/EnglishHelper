@@ -12,9 +12,7 @@ import java.util.UUID;
 @Entity
 @Getter
 @Setter
-@Table(name = "word", uniqueConstraints = @UniqueConstraint(
-        name = "original_translation_user_id_uniq",
-        columnNames = {"original", "translation", "user_id"}))
+@Table(name = "word")
 public class WordEO {
     @Id
     @GeneratedValue

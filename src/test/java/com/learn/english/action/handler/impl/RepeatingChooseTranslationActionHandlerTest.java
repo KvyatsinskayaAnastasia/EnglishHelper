@@ -1,5 +1,6 @@
 package com.learn.english.action.handler.impl;
 
+import com.learn.english.exception.TelegramOperationException;
 import com.learn.english.model.Icon;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
@@ -106,7 +107,20 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(callbackData(message)).containsExactly("1", "2", "3", EXIT.getCode());
             assertButtonRows(message, 3, 1);
             assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("drops distractors that repeat the correct translation")
+        void processAction_duplicateDistractors_keepsOneCorrectOption() {
+            WordForRepeat dog = word(DOG_ID, "dog", "собака");
+            UserState userState = openGame(List.of(dog));
+            when(wordService.getRandomTranslationsByUserId(USER_ID, DOG_ID, 3))
+                    .thenReturn(List.of("Собака", "собака", "муровей", "  муровей  "));
+
+            handler.processAction(userState, textUpdate("start"));
+
+            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("муровей", "собака");
         }
 
         @Test
@@ -140,7 +154,7 @@ class RepeatingChooseTranslationActionHandlerTest {
                     REPEATING_PLANNED.getCode(),
                     REPEATING_RANDOM.getCode());
             verify(wordService, never()).getRandomTranslationsByUserId(any(), any(), any());
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
     }
 
@@ -161,13 +175,30 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(dog);
             assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
             assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("муровей", "собака");
-            verify(wordService).updateRepeatedWord(APPLE_ID, false);
+            verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, false);
             List<SendMessage> messages = sentMessages(telegramHelperService);
             assertThat(messages).hasSize(2);
             assertThat(messages.get(0).getText()).isEqualTo("Правильно!\nСлово: apple\nПеревод: яблоко");
             assertThat(messages.get(0).getReplyMarkup()).isNull();
             assertThat(messages.get(1).getText()).isEqualTo(
                     "Выберите перевод слова: dog\n\n1. муровей\n2. собака");
+        }
+
+        @Test
+        @DisplayName("keeps the card when the confirmation message fails")
+        void processAction_correctOption_confirmationSendFails_keepsTheCard() {
+            WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
+            WordForRepeat dog = word(DOG_ID, "dog", "собака");
+            UserState userState = playing(apple, List.of(apple, dog), List.of("яблоко", "собака"));
+            when(telegramHelperService.sendMessage(any()))
+                    .thenThrow(new TelegramOperationException("sendMessage", USER_ID, null, new RuntimeException("down")));
+
+            assertThatThrownBy(() -> handler.processAction(userState, callbackUpdate("1")))
+                    .isInstanceOf(TelegramOperationException.class);
+
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple, dog);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(apple);
         }
 
         @Test
@@ -180,7 +211,7 @@ class RepeatingChooseTranslationActionHandlerTest {
 
             handler.processAction(userState, textUpdate("ЯБЛОКО"));
 
-            verify(wordService).updateRepeatedWord(APPLE_ID, true);
+            verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, true);
             assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
             assertThat(userState.getRepeatingState()).isNull();
             List<SendMessage> messages = sentMessages(telegramHelperService);
@@ -206,7 +237,7 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly(marked, "яблоко", "собака");
             assertThat(apple.isRepeatFailed()).isTrue();
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
             SendMessage message = onlyMessage(telegramHelperService);
             assertThat(message.getText()).isEqualTo(
                     "Не правильный вариант: муровей.\nПопробуйте еще раз!\nВыберете перевод слова: apple\n\n"
@@ -270,14 +301,17 @@ class RepeatingChooseTranslationActionHandlerTest {
         }
 
         @Test
-        @DisplayName("fails when the option number is outside the list")
-        void processAction_optionOutOfRange_throws() {
+        @DisplayName("asks to pick a listed option when the option number is outside the list")
+        void processAction_optionOutOfRange_asksToChoose() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
             UserState userState = playing(apple, List.of(apple), List.of("муровей", "яблоко", "собака"));
 
-            assertThatThrownBy(() -> handler.processAction(userState, callbackUpdate("9")))
-                    .isInstanceOf(IndexOutOfBoundsException.class);
-            verify(telegramHelperService, never()).sendMessage(any());
+            handler.processAction(userState, callbackUpdate("9"));
+
+            assertThat(apple.isRepeatFailed()).isFalse();
+            assertThat(onlyMessage(telegramHelperService).getText()).startsWith(
+                    "Ответ 9 отсутствует. Пожалуйста, выберите вариант из предложенных:");
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
 
         @Test
@@ -292,7 +326,7 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("муровей", "яблоко", "собака");
             assertThat(onlyMessage(telegramHelperService).getText()).startsWith(
                     "Стикеры и фото не принимаются. Пришлите текст.");
-            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+            verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         }
     }
 

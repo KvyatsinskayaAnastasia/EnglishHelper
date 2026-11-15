@@ -11,6 +11,7 @@ import com.learn.english.service.UserStateService;
 import com.learn.english.service.WordService;
 import com.learn.english.user.handler.UserStatusHandler;
 import com.learn.english.utils.TextInput;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
@@ -23,9 +24,11 @@ import static com.learn.english.model.BotAction.ADD_WORD_ALREADY_EXISTS;
 import static com.learn.english.model.BotAction.ADD_WORD_SAVE_WORD;
 import static com.learn.english.model.BotAction.EXIT;
 
+@Slf4j
 abstract class FillingExampleStatusHandler implements UserStatusHandler {
     private static final List<BotAction> EXIT_ACTIONS = List.of(EXIT);
     private static final int MENU_BUTTONS_PER_ROW = 2;
+    private static final String SAVE_FAILED = "Не удалось сохранить слово. Попробуйте ещё раз.";
 
     private final Map<BotAction, BotActionHandler> botActionHandlers;
     private final TelegramHelperService telegramHelperService;
@@ -80,9 +83,15 @@ abstract class FillingExampleStatusHandler implements UserStatusHandler {
             wordService.addNewWord(wordState, userState.getUserId());
             text = String.format(ADD_WORD_SAVE_WORD.getAnswerMessage(), wordState.getOriginal(),
                     wordState.getTranslation(), wordState.getExampleSentence());
-        } catch (DuplicateWordException | DataIntegrityViolationException ex) {
-            text = String.format(ADD_WORD_ALREADY_EXISTS.getAnswerMessage(),
-                    wordState.getOriginal(), wordState.getTranslation());
+        } catch (DuplicateWordException ex) {
+            text = alreadyExists(wordState);
+        } catch (DataIntegrityViolationException ex) {
+            if (!UniqueConstraint.isViolation(ex)) {
+                log.error("Failed to save word for user {}", userState.getUserId(), ex);
+                keepAsking(userState, SAVE_FAILED);
+                return;
+            }
+            text = alreadyExists(wordState);
         }
         userState.setCurrentWordState(null);
         userState.setProposesState(null);
@@ -90,5 +99,10 @@ abstract class FillingExampleStatusHandler implements UserStatusHandler {
         userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(
                 sendWithActionButtons(userState.getUserId(), text, BASE_OPTIONS, MENU_BUTTONS_PER_ROW)));
         userStateService.saveUserState(userState);
+    }
+
+    private static String alreadyExists(WordState wordState) {
+        return String.format(ADD_WORD_ALREADY_EXISTS.getAnswerMessage(),
+                wordState.getOriginal(), wordState.getTranslation());
     }
 }

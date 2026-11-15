@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum BotAction {
-    HELP("/help", "Помошь", "Выберите действие:"),
+    HELP("/help", "Помощь", "Выберите действие:"),
     ADD_WORD_REQUEST_ORIGINAL("/add_word_request_original", "Добавить слово", "Добавление нового слова.\nВведите слово:"),
     ADD_WORD_REQUEST_TRANSLATION("/add_word_request_translation", null, "Добавление нового слова.\nВведите перевод слова %s"),
     ADD_WORD_REQUEST_EXAMPLE("/add_word_request_example", null, "Добавление нового слова.\nВведите пример с использованием слова %s в значении %s"),

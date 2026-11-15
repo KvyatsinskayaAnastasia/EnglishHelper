@@ -82,7 +82,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
         SendMessage message = onlyMessage(telegramHelperService);
         assertThat(message.getText()).isEqualTo("Введите слово, которое переводится как: яблоко");
         assertThat(callbackData(message)).containsExactly(EXIT.getCode());
-        verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+        verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
         verify(wordService, never()).getRandomTranslationsByUserId(any(), any(), any());
         verify(wordService, never()).getRandomOriginalsByUserId(any(), any(), any());
     }
@@ -104,7 +104,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
                 hint("no", "к", "t"),
                 hint("nope", "к", "to"),
                 hint("zzz", "к", "to"));
-        verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+        verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
     }
 
     @Test
@@ -119,7 +119,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
         assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(dog);
         assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
         assertThat(userState.getRepeatingState().getRepeatingLabels()).isEmpty();
-        verify(wordService).updateRepeatedWord(APPLE_ID, false);
+        verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, false);
         List<SendMessage> messages = sentMessages(telegramHelperService);
         assertThat(messages).extracting(SendMessage::getText).containsExactly(
                 "Правильно!\nСлово: apple\nПеревод: яблоко",
@@ -139,7 +139,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
 
         assertThat(apple.isRepeatFailed()).isTrue();
         assertThat(apple.getCountOfAttempts()).isEqualTo(1);
-        verify(wordService).updateRepeatedWord(APPLE_ID, true);
+        verify(wordService).updateRepeatedWord(APPLE_ID, USER_ID, true);
         assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
         assertThat(userState.getRepeatingState()).isNull();
         assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
@@ -163,7 +163,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
         assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
                 "Стикеры и фото не принимаются. Пришлите текст.\nВведите слово, которое переводится как: яблоко",
                 tooLong(WORD_LIMIT) + "\nВведите слово, которое переводится как: яблоко");
-        verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+        verify(wordService, never()).updateRepeatedWord(any(), any(), anyBoolean());
     }
 
     private static String hint(String answer, String translation, String prefix) {

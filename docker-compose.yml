@@ -12,12 +12,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     environment:
-      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_PORT=${SERVER_PORT:-8181}
+      - TZ=${BOT_SCHEDULE_ZONE:-Europe/Moscow}
+      - BOT_SCHEDULE_ZONE=${BOT_SCHEDULE_ZONE:-Europe/Moscow}
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
-      - LOGGING_LEVEL_ROOT=DEBUG
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:$${SERVER_PORT:-8181}/actuator/health | grep -q UP"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   english-db:
     image: postgres:14.7-alpine
@@ -41,12 +53,15 @@ services:
   redis:
     image: redis:alpine
     container_name: redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 5

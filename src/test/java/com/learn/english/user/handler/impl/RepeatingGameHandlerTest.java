@@ -1,6 +1,7 @@
 package com.learn.english.user.handler.impl;
 
 import com.learn.english.action.handler.BotActionHandler;
+import com.learn.english.exception.TelegramOperationException;
 import com.learn.english.model.BotAction;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
@@ -10,6 +11,7 @@ import com.learn.english.service.UserStateService;
 import com.learn.english.user.handler.UserStatusHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -36,7 +38,9 @@ import static com.learn.english.model.BotAction.REPEATING_CHOOSE_ORIGINAL;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
 import static com.learn.english.model.BotAction.REPEATING_WRITE_WORD_BY_TRANSLATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -167,6 +171,20 @@ class RepeatingGameHandlerTest {
         assertGameMenu(userState);
         verify(userStateService).saveUserState(userState);
         verifyNoInteractions(chooseTranslationHandler, chooseOriginalHandler, writeHandler, exitHandler);
+    }
+
+    @Test
+    @DisplayName("saves the session when the game handler fails after changing it")
+    void processAction_gameHandlerFails_stillSaves() {
+        UserState userState = session(UserStatus.PLANNED_REPEATING_GAME, REPEATING_CHOOSE_TRANSLATION);
+        Update update = textUpdate("яблоко");
+        doThrow(new TelegramOperationException("sendMessage", USER_ID, null, new RuntimeException("down")))
+                .when(chooseTranslationHandler).processAction(userState, update);
+
+        assertThatThrownBy(() -> handler(UserStatus.PLANNED_REPEATING_GAME).processAction(userState, update))
+                .isInstanceOf(TelegramOperationException.class);
+
+        verify(userStateService).saveUserState(userState);
     }
 
     private void assertDelegates(UserStatus status, Update update, BotActionHandler expected) {

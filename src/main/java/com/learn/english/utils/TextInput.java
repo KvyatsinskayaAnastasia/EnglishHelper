@@ -44,7 +44,11 @@ public final class TextInput {
             return null;
         }
         String text = update.getMessage().getText();
-        if (text == null || text.isBlank()) {
+        if (text == null) {
+            return null;
+        }
+        text = text.trim();
+        if (text.isEmpty()) {
             return null;
         }
         return text;

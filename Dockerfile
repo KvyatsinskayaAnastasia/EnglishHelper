@@ -19,14 +19,15 @@ RUN ./mvnw dependency:go-offline -B
 # Копируем исходный код
 COPY src src
 
-# Собираем приложение (чистка не нужна, т.к. используем чистый контейнер)
-RUN ./mvnw package -DskipTests
+# Собираем приложение вместе с тестами: непрошедшая проверка не попадает в образ
+RUN ./mvnw package -B
 
 # Финальный stage - только с JRE и собранным jar
 FROM eclipse-temurin:17-jre-alpine
 
 # Создаем непривилегированного пользователя для безопасности
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && apk add --no-cache wget
 
 WORKDIR /app
 
@@ -35,6 +36,9 @@ COPY --from=builder /app/target/english-*.jar app.jar
 
 # Переключаемся на непривилегированного пользователя
 USER appuser
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+    CMD wget -q -O - http://127.0.0.1:${SERVER_PORT:-8181}/actuator/health | grep -q UP
 
 # Оптимизации JVM для контейнера
 ENTRYPOINT ["java", \

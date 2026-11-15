@@ -5,6 +5,7 @@ import com.learn.english.service.TelegramHelperService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -52,6 +53,21 @@ public class BaseTelegramHelperService implements TelegramHelperService {
         } catch (TelegramApiException e) {
             log.error("Failed to remove inline keyboard: chatId={}, messageId={}", chatId, lastBotCommandMessageId, e);
             throw new TelegramOperationException("removeKeyboard", chatId, lastBotCommandMessageId, e);
+        }
+    }
+
+    @Override
+    public void answerCallbackQuery(String callbackQueryId) {
+        if (callbackQueryId == null || callbackQueryId.isBlank()) {
+            return;
+        }
+        AnswerCallbackQuery answer = AnswerCallbackQuery.builder()
+                .callbackQueryId(callbackQueryId)
+                .build();
+        try {
+            telegramClient.execute(answer);
+        } catch (TelegramApiException e) {
+            log.error("Failed to answer callback query {}", callbackQueryId, e);
         }
     }
 }

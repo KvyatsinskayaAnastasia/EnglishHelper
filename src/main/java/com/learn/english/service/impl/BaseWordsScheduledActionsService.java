@@ -5,7 +5,6 @@ import com.learn.english.service.TelegramService;
 import com.learn.english.service.WordService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,6 @@ public class BaseWordsScheduledActionsService implements WordsScheduledActionsSe
     private final TelegramService telegramService;
 
     @Override
-    @Async
     @Scheduled(cron = REPEAT_CRON, zone = SCHEDULE_ZONE)
     public void repeatWords() {
         log.info("User notification about words that needs repeating has started");
@@ -35,7 +33,6 @@ public class BaseWordsScheduledActionsService implements WordsScheduledActionsSe
     }
 
     @Override
-    @Async
     @Scheduled(cron = ARCHIVE_CRON, zone = SCHEDULE_ZONE)
     public void moveToArchive() {
         log.info("Learned words moving to the archive repeating has started");

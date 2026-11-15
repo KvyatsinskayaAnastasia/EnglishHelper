@@ -6,4 +6,6 @@ public interface TelegramHelperService {
     Integer sendMessage(SendMessage message);
 
     void removeKeyboard(Long chatId, Integer lastBotCommandMessageId);
+
+    void answerCallbackQuery(String callbackQueryId);
 }

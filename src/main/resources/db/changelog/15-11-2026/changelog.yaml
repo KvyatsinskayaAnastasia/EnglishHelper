@@ -1,3 +1,5 @@
 databaseChangeLog:
   - include:
       file: db/changelog/15-11-2026/add_original_translation_user_unique.sql
+  - include:
+      file: db/changelog/15-11-2026/unique_original_translation_ignore_case.sql

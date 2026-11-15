@@ -13,6 +13,8 @@ import com.learn.english.service.WordService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -135,6 +137,37 @@ class FillingExampleWithoutBotHandlerTest {
                 ADD_WORD_REQUEST_ORIGINAL.getCode(),
                 REPEATING_PLANNED.getCode(),
                 REPEATING_RANDOM.getCode());
+        verify(userStateService).saveUserState(userState);
+    }
+
+    @Test
+    @DisplayName("treats a unique-index violation as an existing card")
+    void processAction_uniqueIndex_returnsToMenu() {
+        UserState userState = draft(null);
+        doThrow(new DuplicateKeyException("duplicate"))
+                .when(wordService).addNewWord(userState.getCurrentWordState(), USER_ID);
+
+        handler.processAction(userState, textUpdate("I eat an apple"));
+
+        assertThat(userState.getCurrentWordState()).isNull();
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
+        assertThat(onlyMessage(telegramHelperService).getText())
+                .isEqualTo("Слово apple в значении яблоко уже есть.\nВыберите действие:");
+    }
+
+    @Test
+    @DisplayName("keeps the draft when saving fails for a reason other than a duplicate")
+    void processAction_otherIntegrityError_keepsDraft() {
+        UserState userState = draft(null);
+        doThrow(new DataIntegrityViolationException("null"))
+                .when(wordService).addNewWord(userState.getCurrentWordState(), USER_ID);
+
+        handler.processAction(userState, textUpdate("I eat an apple"));
+
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.FILLING_EXAMPLE_WITHOUT_BOT);
+        assertThat(userState.getCurrentWordState().getExampleSentence()).isEqualTo("I eat an apple");
+        assertThat(onlyMessage(telegramHelperService).getText())
+                .isEqualTo("Не удалось сохранить слово. Попробуйте ещё раз.");
         verify(userStateService).saveUserState(userState);
     }
 

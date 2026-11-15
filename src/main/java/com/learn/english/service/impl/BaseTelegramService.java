@@ -7,6 +7,7 @@ import com.learn.english.service.TelegramHelperService;
 import com.learn.english.service.TelegramService;
 import com.learn.english.service.UserStateService;
 import com.learn.english.service.WordService;
+import com.learn.english.utils.TelegramUpdates;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,21 +36,60 @@ public class BaseTelegramService implements TelegramService {
     }
 
     @Override
+    public void notifyProcessingFailed(long chatId) {
+        telegramHelperService.sendMessage(SendMessage.builder()
+                .chatId(chatId)
+                .text("Не получилось обработать сообщение. Попробуйте ещё раз.")
+                .build());
+    }
+
+    @Override
     public void processUpdate(Update update) {
+        if (update.getCallbackQuery() != null) {
+            telegramHelperService.answerCallbackQuery(update.getCallbackQuery().getId());
+        }
         Long userId = getUserId(update);
+        if (userId == null) {
+            log.debug("Skipping update {} without a user", update.getUpdateId());
+            return;
+        }
         UserState userState = userStateService.getUserState(userId);
         if (userState.getLastBotCommandMessageId() != null) {
-            log.info("Clean bot command buttons");
-            telegramHelperService.removeKeyboard(userState.getUserId(), userState.getLastBotCommandMessageId());
-            userState.setLastBotCommandMessageId(null);
-            userStateService.saveUserState(userState);
+            clearPreviousKeyboard(userState);
         }
-        userStatusHandlers.get(userState.getUserStatus()).processAction(userState, update);
+        UserStatusHandler handler = userStatusHandlers.get(userState.getUserStatus());
+        if (handler == null) {
+            log.warn("No handler for status {}, resetting user {}", userState.getUserStatus(), userId);
+            resetToMenu(userState);
+            handler = userStatusHandlers.get(UserStatus.NO_ACTIVITY);
+        }
+        if (handler == null) {
+            log.error("NO_ACTIVITY handler is not configured");
+            return;
+        }
+        handler.processAction(userState, update);
+    }
+
+    private void clearPreviousKeyboard(UserState userState) {
+        Integer messageId = userState.getLastBotCommandMessageId();
+        try {
+            telegramHelperService.removeKeyboard(userState.getUserId(), messageId);
+        } catch (RuntimeException e) {
+            log.error("Failed to remove inline keyboard: userId={}, messageId={}",
+                    userState.getUserId(), messageId, e);
+        }
+        userState.setLastBotCommandMessageId(null);
+        userStateService.saveUserState(userState);
+    }
+
+    private static void resetToMenu(UserState userState) {
+        userState.setUserStatus(UserStatus.NO_ACTIVITY);
+        userState.setCurrentWordState(null);
+        userState.setProposesState(null);
+        userState.setRepeatingState(null);
     }
 
     private Long getUserId(Update update) {
-        return update.getCallbackQuery() != null
-                ? update.getCallbackQuery().getFrom().getId()
-                : update.getMessage().getFrom().getId();
+        return TelegramUpdates.userId(update);
     }
 }

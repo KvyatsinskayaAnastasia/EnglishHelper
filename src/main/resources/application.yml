@@ -3,14 +3,25 @@ spring:
     change-log: classpath:/db/changelog/db.changelog-master.yaml
   datasource:
     url: jdbc:postgresql://localhost:5432/english
-    username: postgres
-    password: postgres
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   application:
     name: EnglishHelperBot
   redis:
     data:
       host: ${REDIS_HOST:localhost}
+      password: ${REDIS_PASSWORD:}
+server:
+  port: ${SERVER_PORT:8181}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 bot:
   name: ${TELEGRAM_BOT_USERNAME:}
   token: ${TELEGRAM_BOT_TOKEN:}

@@ -7,20 +7,23 @@ import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import com.learn.english.repository.WordRepository;
 import com.learn.english.service.impl.BaseWordService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -55,8 +58,12 @@ class WordServiceTest {
     @Mock
     private WordArchiveService wordArchiveService;
 
-    @InjectMocks
     private BaseWordService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new BaseWordService(wordRepository, wordMapper, wordArchiveService, Clock.systemDefaultZone());
+    }
 
     @Nested
     @DisplayName("getUsersWithWordsToRepeat")
@@ -150,6 +157,22 @@ class WordServiceTest {
         }
 
         @Test
+        @DisplayName("trims the card before the duplicate check and save")
+        void addNewWord_trimsFields() {
+            WordState state = new WordState("  cat  ", "  кот  ", "  I have a cat  ");
+            WordEO entity = new WordEO();
+            when(wordMapper.toEO(state, USER_ID)).thenReturn(entity);
+
+            service.addNewWord(state, USER_ID);
+
+            assertThat(state.getOriginal()).isEqualTo("cat");
+            assertThat(state.getTranslation()).isEqualTo("кот");
+            assertThat(state.getExampleSentence()).isEqualTo("I have a cat");
+            verify(wordRepository).existsByOriginalAndTranslationAndUserId("cat", "кот", USER_ID);
+            verify(wordRepository).save(entity);
+        }
+
+        @Test
         @DisplayName("saves the same original when the translation is different")
         void addNewWord_sameOriginalDifferentTranslation_saves() {
             WordState state = new WordState("cat", "кошка", "A cat");
@@ -196,7 +219,7 @@ class WordServiceTest {
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
 
             LocalDateTime before = LocalDateTime.now();
-            service.updateRepeatedWord(WORD_ID, false);
+            service.updateRepeatedWord(WORD_ID, USER_ID, false);
 
             assertThat(word.getRepeatedCount()).isEqualTo(1);
             assertThat(word.getRepeatAt()).isCloseTo(before.plusDays(1), within(2, java.time.temporal.ChronoUnit.SECONDS));
@@ -210,7 +233,7 @@ class WordServiceTest {
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
 
             LocalDateTime before = LocalDateTime.now();
-            service.updateRepeatedWord(WORD_ID, false);
+            service.updateRepeatedWord(WORD_ID, USER_ID, false);
 
             assertThat(word.getRepeatedCount()).isEqualTo(5);
             assertThat(word.getRepeatAt()).isCloseTo(before.plusDays(7), within(2, java.time.temporal.ChronoUnit.SECONDS));
@@ -222,14 +245,14 @@ class WordServiceTest {
             WordEO six = existingWord(5);
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(six));
             LocalDateTime before = LocalDateTime.now();
-            service.updateRepeatedWord(WORD_ID, false);
+            service.updateRepeatedWord(WORD_ID, USER_ID, false);
             assertThat(six.getRepeatedCount()).isEqualTo(6);
             assertThat(six.getRepeatAt()).isCloseTo(before.plusDays(14), within(2, java.time.temporal.ChronoUnit.SECONDS));
 
             WordEO seven = existingWord(6);
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(seven));
             before = LocalDateTime.now();
-            service.updateRepeatedWord(WORD_ID, false);
+            service.updateRepeatedWord(WORD_ID, USER_ID, false);
             assertThat(seven.getRepeatedCount()).isEqualTo(7);
             assertThat(seven.getRepeatAt()).isCloseTo(before.plusDays(21), within(2, java.time.temporal.ChronoUnit.SECONDS));
         }
@@ -240,7 +263,7 @@ class WordServiceTest {
             WordEO word = existingWord(7);
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
 
-            service.updateRepeatedWord(WORD_ID, false);
+            service.updateRepeatedWord(WORD_ID, USER_ID, false);
 
             assertThat(word.getRepeatedCount()).isEqualTo(LEARNED_COUNT);
             assertThat(word.getRepeatAt()).isNull();
@@ -253,7 +276,7 @@ class WordServiceTest {
             WordEO word = existingWord(0);
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
 
-            service.updateRepeatedWord(WORD_ID, true);
+            service.updateRepeatedWord(WORD_ID, USER_ID, true);
 
             assertThat(word.getRepeatedCount()).isZero();
             assertThat(word.getRepeatAt()).isNotNull();
@@ -266,7 +289,7 @@ class WordServiceTest {
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
 
             LocalDateTime before = LocalDateTime.now();
-            service.updateRepeatedWord(WORD_ID, true);
+            service.updateRepeatedWord(WORD_ID, USER_ID, true);
 
             assertThat(word.getRepeatedCount()).isEqualTo(7);
             assertThat(word.getRepeatAt()).isCloseTo(before.plusDays(21), within(2, java.time.temporal.ChronoUnit.SECONDS));
@@ -277,8 +300,34 @@ class WordServiceTest {
         void updateRepeatedWord_missing_throws() {
             when(wordRepository.findById(WORD_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.updateRepeatedWord(WORD_ID, false))
+            assertThatThrownBy(() -> service.updateRepeatedWord(WORD_ID, USER_ID, false))
                     .isInstanceOf(NoSuchElementException.class);
+        }
+
+        @Test
+        @DisplayName("throws when the card belongs to another user and does not save it")
+        void updateRepeatedWord_otherUser_throws() {
+            WordEO word = existingWord(1);
+            when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
+
+            assertThatThrownBy(() -> service.updateRepeatedWord(WORD_ID, 99L, false))
+                    .isInstanceOf(NoSuchElementException.class);
+
+            assertThat(word.getRepeatedCount()).isEqualTo(1);
+            verify(wordRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("schedules the next repeat in the clock zone")
+        void updateRepeatedWord_usesClockZone() {
+            Clock moscow = Clock.fixed(Instant.parse("2026-11-15T21:30:00Z"), ZoneId.of("Europe/Moscow"));
+            BaseWordService zoned = new BaseWordService(wordRepository, wordMapper, wordArchiveService, moscow);
+            WordEO word = existingWord(0);
+            when(wordRepository.findById(WORD_ID)).thenReturn(Optional.of(word));
+
+            zoned.updateRepeatedWord(WORD_ID, USER_ID, false);
+
+            assertThat(word.getRepeatAt()).isEqualTo(LocalDateTime.of(2026, 11, 17, 0, 30));
         }
     }
 

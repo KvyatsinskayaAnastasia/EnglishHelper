@@ -30,7 +30,7 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
 
     @Override
     protected boolean isCorrectAnswer(UserState userState, String answer) {
-        return answer.equalsIgnoreCase(userState.getRepeatingState().getCurrentRepeatingWord().getOriginal());
+        return isCorrectAnswer(answer, userState.getRepeatingState().getCurrentRepeatingWord().getOriginal());
     }
 
     @Override

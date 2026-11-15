@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -30,20 +31,21 @@ public class BaseWordService implements WordService {
     private final WordRepository wordRepository;
     private final WordMapper wordMapper;
     private final WordArchiveService wordArchiveService;
+    private final Clock clock;
 
     @Override
     public List<Long> getUsersWithWordsToRepeat() {
-        return wordRepository.findDistinctUsersWithWordsToRepeat(LocalDateTime.now());
+        return wordRepository.findDistinctUsersWithWordsToRepeat(now());
     }
 
     @Override
     public int countWordsForRepeat(Long userId) {
-        return wordRepository.countAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId);
+        return wordRepository.countAllByRepeatAtIsLessThanEqualAndUserId(now(), userId);
     }
 
     @Override
     public List<WordForRepeat> getWordsForRepeatByRepeatAtIsLessThanEqualAndUserId(Long userId, Integer size) {
-        return wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId,
+        return wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(now(), userId,
                         PageRequest.of(0, size, Sort.by("repeatedCount").ascending()
                                 .and(Sort.by("repeatAt").ascending()))).stream()
                 .map(BaseWordService::toWordForRepeat)
@@ -53,30 +55,53 @@ public class BaseWordService implements WordService {
     @Override
     @Transactional
     public void addNewWord(WordState wordState, @NonNull Long userId) {
+        wordState.setOriginal(trimToNull(wordState.getOriginal()));
+        wordState.setTranslation(trimToNull(wordState.getTranslation()));
+        wordState.setExampleSentence(trimToNull(wordState.getExampleSentence()));
+        if (wordState.getOriginal() == null || wordState.getTranslation() == null) {
+            throw new IllegalArgumentException("Original and translation are required");
+        }
         if (wordRepository.existsByOriginalAndTranslationAndUserId(
                 wordState.getOriginal(), wordState.getTranslation(), userId)) {
             throw new DuplicateWordException(wordState.getOriginal(), wordState.getTranslation());
         }
         WordEO wordEO = wordMapper.toEO(wordState, userId);
-        wordEO.setRepeatAt(LocalDateTime.now());
+        wordEO.setRepeatAt(now());
         wordRepository.save(wordEO);
     }
 
     @Override
     @Transactional
-    public void updateRepeatedWord(UUID wordId, boolean isRepeatFailed) {
-        WordEO wordEO = wordRepository.findById(wordId).orElseThrow();
-        wordEO.setRepeatedCount(isRepeatFailed
-                ? Math.max(0, wordEO.getRepeatedCount() - 1)
-                : wordEO.getRepeatedCount() + 1);
-        wordEO.setRepeatAt(REPEATED_COUNT_FOR_LEARNED != wordEO.getRepeatedCount() ?
-                LocalDateTime.now().plusDays(getDelayToNextRepeat(wordEO.getRepeatedCount()))
-                : null);
+    public void updateRepeatedWord(UUID wordId, @NonNull Long userId, boolean isRepeatFailed) {
+        WordEO wordEO = wordRepository.findById(wordId)
+                .filter(word -> userId.equals(word.getUserId()))
+                .orElseThrow();
+        int repeatedCount = nextRepeatedCount(wordEO.getRepeatedCount(), isRepeatFailed);
+        wordEO.setRepeatedCount(repeatedCount);
+        wordEO.setRepeatAt(repeatedCount == REPEATED_COUNT_FOR_LEARNED
+                ? null
+                : now().plusDays(delayDays(repeatedCount)));
         wordRepository.save(wordEO);
     }
 
-    private int getDelayToNextRepeat(int repeatCount) {
-        return repeatCount < 5 ? repeatCount : (repeatCount % 4) * 7;
+    private static int nextRepeatedCount(int repeatedCount, boolean repeatFailed) {
+        return repeatFailed ? Math.max(0, repeatedCount - 1) : repeatedCount + 1;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+
+    private static int delayDays(int repeatedCount) {
+        return repeatedCount < 5 ? repeatedCount : (repeatedCount % 4) * 7;
     }
 
     @Override

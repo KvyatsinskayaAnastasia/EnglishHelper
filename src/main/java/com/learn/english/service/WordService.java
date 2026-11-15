@@ -16,7 +16,7 @@ public interface WordService {
 
     void addNewWord(WordState wordState, @NonNull Long userId);
 
-    void updateRepeatedWord(UUID wordId, boolean isRepeatFailed);
+    void updateRepeatedWord(UUID wordId, @NonNull Long userId, boolean isRepeatFailed);
 
     List<String> getRandomTranslationsByUserId(Long userId, UUID excludeWordId, Integer size);
 

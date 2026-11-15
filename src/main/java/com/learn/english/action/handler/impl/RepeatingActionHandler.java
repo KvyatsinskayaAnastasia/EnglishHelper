@@ -9,6 +9,7 @@ import com.learn.english.model.UserStatus;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.service.WordService;
 import com.learn.english.utils.TextInput;
+import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
@@ -22,6 +23,7 @@ import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.utils.ButtonUtils.sendWithActionButtons;
 import static com.learn.english.utils.ButtonUtils.sendWithNumberButtons;
 
+@Slf4j
 public abstract class RepeatingActionHandler implements BotActionHandler {
     protected static final int RANDOM_WORDS_COUNT = 3;
     protected static final int BUTTONS_PER_ROW = 1;
@@ -80,12 +82,13 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 return;
             }
             if (isCorrectAnswer(userState, answer)) {
-                handleCorrectAnswer(userState);
-                handleNextWord(userState);
+                if (handleCorrectAnswer(userState)) {
+                    handleNextWord(userState);
+                }
             } else {
                 handleWrongAnswer(userState, update, answer);
             }
-        } catch (NumberFormatException e) {
+        } catch (InvalidOptionException e) {
             String rawAnswer = update.getCallbackQuery() != null
                     ? update.getCallbackQuery().getData()
                     : update.getMessage().getText();
@@ -94,53 +97,69 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     }
 
     protected boolean isCorrectAnswer(String answer, String correctAnswer) {
-        return answer.equalsIgnoreCase(correctAnswer);
+        return sameText(answer, correctAnswer);
     }
 
     protected String getSelectedText(UserState userState, Update update) {
-        return update.getCallbackQuery() != null
-                ? userState.getRepeatingState().getRepeatingLabels()
-                .get(Integer.parseInt(update.getCallbackQuery().getData()) - 1)
-                : update.getMessage().getText();
+        if (update.getCallbackQuery() != null) {
+            List<String> labels = userState.getRepeatingState().getRepeatingLabels();
+            int selectedIndex = optionIndex(labels, update.getCallbackQuery().getData());
+            return labels.get(selectedIndex);
+        }
+        return TextInput.value(update);
     }
 
-    protected void markWrongAnswer(UserState userState, Update update) {
-        if (update.getCallbackQuery() != null) {
-            var selectedIndex = Integer.parseInt(update.getCallbackQuery().getData()) - 1;
-            var selectedText = userState.getRepeatingState()
-                    .getRepeatingLabels()
-                    .get(selectedIndex);
-            userState.getRepeatingState()
-                    .getRepeatingLabels().set(selectedIndex, selectedText.concat(" " + Icon.NOT.get()));
-        } else {
-            var selectedText = update.getMessage().getText();
-            var selectedIndex = userState.getRepeatingState().getRepeatingLabels().indexOf(selectedText);
-            if (selectedIndex != -1) {
-                userState.getRepeatingState()
-                        .getRepeatingLabels().set(selectedIndex, selectedText.concat(" " + Icon.NOT.get()));
-            }
+    private static int optionIndex(List<String> labels, String callbackData) {
+        int index;
+        try {
+            index = Integer.parseInt(callbackData) - 1;
+        } catch (NumberFormatException ex) {
+            throw new InvalidOptionException();
+        }
+        if (labels == null || index < 0 || index >= labels.size()) {
+            throw new InvalidOptionException();
+        }
+        return index;
+    }
+
+    protected void markWrongAnswer(UserState userState, Update update, String answer) {
+        List<String> labels = userState.getRepeatingState().getRepeatingLabels();
+        int selectedIndex = update.getCallbackQuery() != null
+                ? optionIndex(labels, update.getCallbackQuery().getData())
+                : labels.indexOf(answer);
+        if (selectedIndex >= 0) {
+            labels.set(selectedIndex, labels.get(selectedIndex).concat(" " + Icon.NOT.get()));
         }
     }
 
-    protected void handleCorrectAnswer(UserState userState) {
+    protected boolean handleCorrectAnswer(UserState userState) {
         RepeatingState repeatingState = userState.getRepeatingState();
         WordForRepeat currentWord = repeatingState.getCurrentRepeatingWord();
-
-        if (repeatingState.isIncreaseRepeatingCount()) {
-            wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
+        sendPlain(userState, String.format("Правильно!\nСлово: %s\nПеревод: %s",
+                currentWord.getOriginal(), currentWord.getTranslation()));
+        try {
+            if (repeatingState.isIncreaseRepeatingCount()) {
+                wordService.updateRepeatedWord(currentWord.getId(), userState.getUserId(), currentWord.isRepeatFailed());
+            }
+            repeatingState.getRepeatingWords().removeIf(word -> Objects.equals(currentWord.getId(), word.getId()));
+            return true;
+        } catch (RuntimeException e) {
+            log.error("Failed to save repeating progress for user {}", userState.getUserId(), e);
+            sendPlain(userState, "Не удалось сохранить прогресс. Попробуйте ещё раз.");
+            return false;
         }
-        repeatingState.getRepeatingWords().removeIf(word -> Objects.equals(currentWord.getId(), word.getId()));
+    }
 
+    private void sendPlain(UserState userState, String text) {
         telegramHelperService.sendMessage(SendMessage.builder()
                 .chatId(userState.getUserId())
-                .text(String.format("Правильно!\nСлово: %s\nПеревод: %s", currentWord.getOriginal(),
-                        currentWord.getTranslation()))
+                .text(text)
                 .build());
     }
 
     protected void handleWrongAnswer(UserState userState, Update update, String answer) {
         userState.getRepeatingState().getCurrentRepeatingWord().setRepeatFailed(true);
-        markWrongAnswer(userState, update);
+        markWrongAnswer(userState, update, answer);
         userState.setLastBotCommandMessageId(
                 telegramHelperService.sendMessage(sendWithNumberButtons(userState.getUserId(),
                         getRetryText(userState, answer),
@@ -206,13 +225,46 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     }
 
     protected List<String> prepareWords(UserState userState, WordForRepeat word) {
-        List<String> randomWords = getRandomWords(userState, word);
+        String correct = getCorrectAnswer(word);
+        List<String> options = new ArrayList<>();
+        for (String candidate : getRandomWords(userState, word)) {
+            addDistractor(options, candidate, correct);
+        }
+        if (correct != null) {
+            options.add(correct);
+        }
+        options.sort(Comparator.naturalOrder());
+        return options;
+    }
 
-        List<String> allWords = new ArrayList<>(randomWords);
-        allWords.add(getCorrectAnswer(word));
-        allWords.sort(Comparator.naturalOrder());
+    private static void addDistractor(List<String> options, String candidate, String correct) {
+        if (candidate == null || candidate.isBlank()) {
+            return;
+        }
+        String option = candidate.trim();
+        if (sameText(option, correct) || containsIgnoreCase(options, option)) {
+            return;
+        }
+        options.add(option);
+    }
 
-        return allWords;
+    private static boolean containsIgnoreCase(List<String> options, String option) {
+        for (String existing : options) {
+            if (existing.equalsIgnoreCase(option)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sameText(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
+    }
+
+    private static final class InvalidOptionException extends RuntimeException {
     }
 
     protected void generateQuestionMessage(UserState userState) {

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.support.CronExpression;
 
@@ -77,6 +78,8 @@ class WordsScheduledActionsServiceTest {
                     .getAnnotation(Scheduled.class);
             assertThat(scheduled.cron()).isEqualTo("0 0 8-23 * * *");
             assertThat(scheduled.zone()).isEqualTo("${bot.schedule.zone:Europe/Moscow}");
+            assertThat(BaseWordsScheduledActionsService.class.getMethod("repeatWords").getAnnotation(Async.class))
+                    .isNull();
 
             CronExpression expression = CronExpression.parse(scheduled.cron());
             ZoneId zone = ZoneId.of("Europe/Moscow");

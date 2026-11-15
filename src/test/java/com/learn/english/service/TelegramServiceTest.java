@@ -1,5 +1,6 @@
 package com.learn.english.service;
 
+import com.learn.english.exception.TelegramOperationException;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
 import com.learn.english.service.impl.BaseTelegramService;
@@ -24,6 +25,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,6 +93,7 @@ class TelegramServiceTest {
 
             verify(noActivityHandler).processAction(userState, update);
             verify(telegramHelperService, never()).removeKeyboard(any(), any());
+            verify(telegramHelperService, never()).answerCallbackQuery(any());
         }
 
         @Test
@@ -104,6 +107,7 @@ class TelegramServiceTest {
 
             verify(userStateService).getUserState(USER_ID);
             verify(noActivityHandler).processAction(userState, update);
+            verify(telegramHelperService).answerCallbackQuery(null);
         }
 
         @Test
@@ -120,6 +124,62 @@ class TelegramServiceTest {
             assertThat(userState.getLastBotCommandMessageId()).isNull();
             verify(userStateService).saveUserState(userState);
             verify(noActivityHandler).processAction(eq(userState), eq(update));
+        }
+
+        @Test
+        @DisplayName("continues the step when removing the previous keyboard fails")
+        void processUpdate_keyboardRemovalFails_stillHandlesUpdate() {
+            UserState userState = new UserState(USER_ID);
+            userState.setLastBotCommandMessageId(LAST_MESSAGE_ID);
+            when(userStateService.getUserState(USER_ID)).thenReturn(userState);
+            doThrow(new TelegramOperationException("removeKeyboard", USER_ID, LAST_MESSAGE_ID, new RuntimeException("gone")))
+                    .when(telegramHelperService).removeKeyboard(USER_ID, LAST_MESSAGE_ID);
+            Update update = messageUpdate();
+
+            service.processUpdate(update);
+
+            assertThat(userState.getLastBotCommandMessageId()).isNull();
+            verify(userStateService).saveUserState(userState);
+            verify(noActivityHandler).processAction(userState, update);
+        }
+
+        @Test
+        @DisplayName("resets a status that no longer has a handler back to the main menu")
+        void processUpdate_missingHandler_resetsToNoActivity() {
+            UserState userState = new UserState(USER_ID);
+            userState.setUserStatus(UserStatus.FILLING_ORIGINAL_WITH_BOT);
+            when(userStateService.getUserState(USER_ID)).thenReturn(userState);
+            Update update = messageUpdate();
+
+            service.processUpdate(update);
+
+            assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
+            assertThat(userState.getCurrentWordState()).isNull();
+            assertThat(userState.getRepeatingState()).isNull();
+            verify(noActivityHandler).processAction(userState, update);
+        }
+
+        @Test
+        @DisplayName("skips an update that has neither a message nor a callback")
+        void processUpdate_withoutUser_skips() {
+            Update update = new Update();
+
+            service.processUpdate(update);
+
+            verify(userStateService, never()).getUserState(any());
+            verify(noActivityHandler, never()).processAction(any(), any());
+        }
+
+        @Test
+        @DisplayName("tells the user when processing failed")
+        void notifyProcessingFailed_sendsRetryMessage() {
+            service.notifyProcessingFailed(USER_ID);
+
+            ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+            verify(telegramHelperService).sendMessage(captor.capture());
+            assertThat(captor.getValue().getChatId()).isEqualTo(USER_ID.toString());
+            assertThat(captor.getValue().getText())
+                    .isEqualTo("Не получилось обработать сообщение. Попробуйте ещё раз.");
         }
     }
 
