@@ -27,8 +27,13 @@ import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
+import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.stickerUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
+import static com.learn.english.utils.TextInput.MEDIA_REJECTED;
+import static com.learn.english.utils.TextInput.WORD_LIMIT;
+import static com.learn.english.utils.TextInput.tooLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -111,6 +116,22 @@ class FillingTranslationWithoutBotHandlerTest {
 
         verify(exitHandler).processAction(userState, update);
         assertThat(userState.getCurrentWordState().getTranslation()).isNull();
+    }
+
+    @Test
+    @DisplayName("does not accept a sticker or an overlong translation")
+    void processAction_stickerAndTooLong_stayOnTranslation() {
+        UserState sticker = draft();
+        handler.processAction(sticker, stickerUpdate());
+        assertThat(sticker.getCurrentWordState().getTranslation()).isNull();
+        assertThat(sticker.getUserStatus()).isEqualTo(UserStatus.FILLING_TRANSLATION_WITHOUT_BOT);
+
+        UserState tooLong = draft();
+        handler.processAction(tooLong, textUpdate("я".repeat(WORD_LIMIT + 1)));
+        assertThat(tooLong.getCurrentWordState().getTranslation()).isNull();
+        assertThat(tooLong.getUserStatus()).isEqualTo(UserStatus.FILLING_TRANSLATION_WITHOUT_BOT);
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText)
+                .containsExactly(MEDIA_REJECTED, tooLong(WORD_LIMIT));
     }
 
     private static UserState draft() {

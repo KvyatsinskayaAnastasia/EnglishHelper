@@ -9,6 +9,7 @@ public enum BotAction {
     ADD_WORD_REQUEST_TRANSLATION("/add_word_request_translation", null, "Добавление нового слова.\nВведите перевод слова %s"),
     ADD_WORD_REQUEST_EXAMPLE("/add_word_request_example", null, "Добавление нового слова.\nВведите пример с использованием слова %s в значении %s"),
     ADD_WORD_SAVE_WORD("/add_word_save_word", null, "Добавлено слово %s, в значении %s.\nПример использования: %s.\nВыберите действие:"),
+    ADD_WORD_ALREADY_EXISTS("/add_word_already_exists", null, "Слово %s в значении %s уже есть.\nВыберите действие:"),
     REPEATING_PLANNED("/repeating_planned", "Повторить по плану", null),
     REPEATING_RANDOM("/repeating_random", "Что-нибудь да повторить", null),
     REPEATING_CHOOSE_TRANSLATION("/repeating_choose_translation", "Повторение: выбрать перевод", null),

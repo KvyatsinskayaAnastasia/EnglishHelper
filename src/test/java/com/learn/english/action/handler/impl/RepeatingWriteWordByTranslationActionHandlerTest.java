@@ -25,8 +25,11 @@ import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
 import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.stickerUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
+import static com.learn.english.utils.TextInput.WORD_LIMIT;
+import static com.learn.english.utils.TextInput.tooLong;
 import static com.learn.english.helper.HandlerTestHelper.word;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -145,6 +148,24 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
                 "Все слова повторены!");
     }
 
+    @Test
+    @DisplayName("does not count a sticker or an overlong answer as an attempt")
+    void processAction_stickerAndTooLong_areNotAttempts() {
+        WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
+        UserState userState = playing(apple, List.of(apple));
+
+        handler.processAction(userState, stickerUpdate());
+        handler.processAction(userState, textUpdate("a".repeat(WORD_LIMIT + 1)));
+
+        assertThat(apple.isRepeatFailed()).isFalse();
+        assertThat(apple.getCountOfAttempts()).isZero();
+        assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
+                "Стикеры и фото не принимаются. Пришлите текст.\nВведите слово, которое переводится как: яблоко",
+                tooLong(WORD_LIMIT) + "\nВведите слово, которое переводится как: яблоко");
+        verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+    }
+
     private static String hint(String answer, String translation, String prefix) {
         return "Не правильный ответ: " + answer + "\nПопробуйте еще!\nВведите слово, которое переводится как: "
                 + translation + ".\nподсказка: " + prefix;
@@ -159,7 +180,7 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
     private static UserState playing(WordForRepeat current, List<WordForRepeat> queue) {
         UserState userState = new UserState(USER_ID);
         userState.setRepeatingState(new RepeatingState(
-                new ArrayList<>(queue), current, new ArrayList<>(), false, REPEATING_WRITE_WORD_BY_TRANSLATION));
+                new ArrayList<>(queue), current, new ArrayList<>(), true, REPEATING_WRITE_WORD_BY_TRANSLATION));
         return userState;
     }
 }

@@ -1,6 +1,5 @@
 package com.learn.english.service;
 
-import com.learn.english.entity.WordEO;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import lombok.NonNull;
@@ -25,5 +24,5 @@ public interface WordService {
 
     List<WordForRepeat> getRandomWordEOSByUserId(Long userId, Integer size);
 
-    List<WordEO> deleteLearnedWords();
+    void moveLearnedWordsToArchive();
 }

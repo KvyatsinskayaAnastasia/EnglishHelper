@@ -26,8 +26,14 @@ import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
+import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.photoUpdate;
+import static com.learn.english.helper.HandlerTestHelper.stickerUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
+import static com.learn.english.utils.TextInput.MEDIA_REJECTED;
+import static com.learn.english.utils.TextInput.WORD_LIMIT;
+import static com.learn.english.utils.TextInput.tooLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -92,6 +98,50 @@ class FillingOriginalWithoutBotHandlerTest {
         assertButtonRows(message, 1);
         verify(userStateService).saveUserState(userState);
         verify(exitHandler, never()).processAction(any(), any());
+    }
+
+    @Test
+    @DisplayName("does not accept a sticker as the original")
+    void processAction_sticker_staysOnOriginal() {
+        UserState userState = draft();
+
+        handler.processAction(userState, stickerUpdate());
+
+        assertStillAsking(userState, MEDIA_REJECTED);
+    }
+
+    @Test
+    @DisplayName("does not accept a photo as the original")
+    void processAction_photo_staysOnOriginal() {
+        UserState userState = draft();
+
+        handler.processAction(userState, photoUpdate());
+
+        assertStillAsking(userState, MEDIA_REJECTED);
+    }
+
+    @Test
+    @DisplayName("accepts an original of the column limit and rejects one extra character")
+    void processAction_lengthLimit() {
+        UserState accepted = draft();
+        handler.processAction(accepted, textUpdate("a".repeat(WORD_LIMIT)));
+        assertThat(accepted.getCurrentWordState().getOriginal()).hasSize(WORD_LIMIT);
+        assertThat(accepted.getUserStatus()).isEqualTo(UserStatus.FILLING_TRANSLATION_WITHOUT_BOT);
+
+        UserState rejected = draft();
+        handler.processAction(rejected, textUpdate("a".repeat(WORD_LIMIT + 1)));
+        assertThat(rejected.getCurrentWordState().getOriginal()).isNull();
+        assertThat(rejected.getUserStatus()).isEqualTo(UserStatus.FILLING_ORIGINAL_WITHOUT_BOT);
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText)
+                .last().isEqualTo(tooLong(WORD_LIMIT));
+    }
+
+    private void assertStillAsking(UserState userState, String text) {
+        assertThat(userState.getCurrentWordState().getOriginal()).isNull();
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.FILLING_ORIGINAL_WITHOUT_BOT);
+        assertThat(onlyMessage(telegramHelperService).getText()).isEqualTo(text);
+        assertThat(callbackData(onlyMessage(telegramHelperService))).containsExactly(EXIT.getCode());
+        verify(userStateService).saveUserState(userState);
     }
 
     private static UserState draft() {

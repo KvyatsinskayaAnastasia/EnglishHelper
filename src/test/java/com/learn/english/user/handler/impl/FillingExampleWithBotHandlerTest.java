@@ -1,6 +1,7 @@
 package com.learn.english.user.handler.impl;
 
 import com.learn.english.action.handler.BotActionHandler;
+import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.model.BotAction;
 import com.learn.english.model.ProposesState;
 import com.learn.english.model.UserState;
@@ -16,21 +17,32 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
+import static com.learn.english.model.BotAction.REPEATING_PLANNED;
+import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
+import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
+import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.photoUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
+import static com.learn.english.utils.TextInput.EXAMPLE_LIMIT;
+import static com.learn.english.utils.TextInput.MEDIA_REJECTED;
+import static com.learn.english.utils.TextInput.tooLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -159,6 +171,42 @@ class FillingExampleWithBotHandlerTest {
         handler.processAction(userState, textUpdate("My own example"));
 
         assertSaved(userState, "My own example");
+    }
+
+    @Test
+    @DisplayName("tells the user the card already exists and returns to the menu")
+    void processAction_duplicate_returnsToMenu() {
+        UserState userState = draft(null, List.of("I eat an apple"));
+        doThrow(new DuplicateWordException("apple", "яблоко"))
+                .when(wordService).addNewWord(userState.getCurrentWordState(), USER_ID);
+
+        handler.processAction(userState, textUpdate("My own example"));
+
+        assertThat(userState.getCurrentWordState()).isNull();
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
+        SendMessage message = onlyMessage(telegramHelperService);
+        assertThat(message.getText()).isEqualTo("Слово apple в значении яблоко уже есть.\nВыберите действие:");
+        assertThat(callbackData(message)).containsExactly(
+                ADD_WORD_REQUEST_ORIGINAL.getCode(),
+                REPEATING_PLANNED.getCode(),
+                REPEATING_RANDOM.getCode());
+        verify(userStateService).saveUserState(userState);
+    }
+
+    @Test
+    @DisplayName("does not save a photo or free text past the example limit")
+    void processAction_photoAndTooLong_doNotSave() {
+        UserState photo = draft(null, List.of("I eat an apple"));
+        handler.processAction(photo, photoUpdate());
+        assertThat(photo.getUserStatus()).isEqualTo(UserStatus.FILLING_EXAMPLE_WITH_BOT);
+        assertThat(photo.getCurrentWordState().getExampleSentence()).isNull();
+
+        UserState tooLong = draft(null, null);
+        handler.processAction(tooLong, textUpdate("e".repeat(EXAMPLE_LIMIT + 1)));
+        assertThat(tooLong.getCurrentWordState().getExampleSentence()).isNull();
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText)
+                .containsExactly(MEDIA_REJECTED, tooLong(EXAMPLE_LIMIT));
+        verifyNoInteractions(wordService);
     }
 
     private void assertSaved(UserState userState, String example) {

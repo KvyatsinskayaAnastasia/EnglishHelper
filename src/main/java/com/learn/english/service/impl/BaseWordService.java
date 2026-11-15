@@ -1,10 +1,12 @@
 package com.learn.english.service.impl;
 
 import com.learn.english.entity.WordEO;
+import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.mapper.WordMapper;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import com.learn.english.repository.WordRepository;
+import com.learn.english.service.WordArchiveService;
 import com.learn.english.service.WordService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class BaseWordService implements WordService {
 
     private final WordRepository wordRepository;
     private final WordMapper wordMapper;
+    private final WordArchiveService wordArchiveService;
 
     @Override
     public List<Long> getUsersWithWordsToRepeat() {
@@ -43,14 +46,17 @@ public class BaseWordService implements WordService {
         return wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId,
                         PageRequest.of(0, size, Sort.by("repeatedCount").ascending()
                                 .and(Sort.by("repeatAt").ascending()))).stream()
-                .map(word -> new WordForRepeat(word.getOriginal(), word.getTranslation(),
-                        word.getExampleSentence(), word.getUserId(), word.getId(), false, 0))
+                .map(BaseWordService::toWordForRepeat)
                 .toList();
     }
 
     @Override
     @Transactional
     public void addNewWord(WordState wordState, @NonNull Long userId) {
+        if (wordRepository.existsByOriginalAndTranslationAndUserId(
+                wordState.getOriginal(), wordState.getTranslation(), userId)) {
+            throw new DuplicateWordException(wordState.getOriginal(), wordState.getTranslation());
+        }
         WordEO wordEO = wordMapper.toEO(wordState, userId);
         wordEO.setRepeatAt(LocalDateTime.now());
         wordRepository.save(wordEO);
@@ -93,21 +99,31 @@ public class BaseWordService implements WordService {
     public List<WordForRepeat> getRandomWordEOSByUserId(Long userId, Integer size) {
         List<WordEO> randomPage = wordRepository.getRandomWordEOSByUserIdExcludeWordWithId(userId, null, size);
         return !CollectionUtils.isEmpty(randomPage) ? randomPage.stream()
-                .map(word -> new WordForRepeat(word.getOriginal(), word.getTranslation(),
-                        word.getExampleSentence(), word.getUserId(), word.getId(), false, 0))
+                .map(BaseWordService::toWordForRepeat)
                 .toList() : Collections.emptyList();
     }
 
     @Override
-    public List<WordEO> deleteLearnedWords() {
-        var learnedWords = wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(REPEATED_COUNT_FOR_LEARNED);
+    @Transactional
+    public void moveLearnedWordsToArchive() {
+        List<WordEO> learnedWords = findLearnedWords();
+        if (CollectionUtils.isEmpty(learnedWords)) {
+            return;
+        }
+        wordArchiveService.saveArchiveWords(learnedWords);
         wordRepository.deleteAll(learnedWords);
-        return learnedWords;
+    }
+
+    private List<WordEO> findLearnedWords() {
+        return wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(REPEATED_COUNT_FOR_LEARNED);
+    }
+
+    private static WordForRepeat toWordForRepeat(WordEO word) {
+        return new WordForRepeat(word.getOriginal(), word.getTranslation(), word.getExampleSentence(),
+                word.getUserId(), word.getId(), false, 0);
     }
 
     private List<WordEO> getRandomWordEOSByUserId(Long userId, UUID excludeWordId, Integer size) {
         return wordRepository.getRandomWordEOSByUserIdExcludeWordWithId(userId, excludeWordId, size);
     }
-
-
 }

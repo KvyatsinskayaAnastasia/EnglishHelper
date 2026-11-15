@@ -18,6 +18,8 @@ public interface WordRepository extends JpaRepository<WordEO, UUID>, PagingAndSo
 
     int countAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime repeatAt, Long userId);
 
+    boolean existsByOriginalAndTranslationAndUserId(String original, String translation, Long userId);
+
     Page<WordEO> findAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime repeatAt, Long userId, Pageable pageable);
 
     @Query(value = """

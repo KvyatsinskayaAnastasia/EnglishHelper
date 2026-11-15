@@ -106,17 +106,18 @@ class RepeatingPlannedHandlerTest {
     }
 
     @Test
-    @DisplayName("reports that everything is repeated and still switches to the planned game status")
-    void processAction_nothingDue_reportsCompletion() {
+    @DisplayName("reports that everything is repeated and stays on the main menu")
+    void processAction_nothingDue_keepsMainMenu() {
         when(wordService.getWordsForRepeatByRepeatAtIsLessThanEqualAndUserId(USER_ID, 10)).thenReturn(List.of());
         UserState userState = new UserState(USER_ID);
         RepeatingState previous = new RepeatingState();
         userState.setRepeatingState(previous);
+        userState.setUserStatus(UserStatus.PLANNED_REPEATING_GAME);
 
         handler.processAction(userState, emptyUpdate());
 
         assertThat(userState.getRepeatingState()).isSameAs(previous);
-        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.PLANNED_REPEATING_GAME);
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
         SendMessage message = onlyMessage(telegramHelperService);
         assertThat(message.getText()).isEqualTo("Все слова повторены!");
         assertThat(callbackData(message)).containsExactly(

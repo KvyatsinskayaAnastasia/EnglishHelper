@@ -7,6 +7,7 @@ import com.learn.english.model.UserStatus;
 import com.learn.english.service.TelegramHelperService;
 import com.learn.english.service.UserStateService;
 import com.learn.english.user.handler.UserStatusHandler;
+import com.learn.english.utils.TextInput;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -40,7 +41,11 @@ public class FillingTranslationWithoutBotHandler implements UserStatusHandler {
             botActionHandlers.get(botAction).processAction(userState, update);
             return;
         }
-        userState.getCurrentWordState().setTranslation(update.getMessage().getText());
+        var translation = TextInput.accept(userState, telegramHelperService, userStateService, update, TextInput.WORD_LIMIT);
+        if (translation.isEmpty()) {
+            return;
+        }
+        userState.getCurrentWordState().setTranslation(translation.get());
         userState.setUserStatus(UserStatus.FILLING_EXAMPLE_WITHOUT_BOT);
         userStateService.saveUserState(userState);
         userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(

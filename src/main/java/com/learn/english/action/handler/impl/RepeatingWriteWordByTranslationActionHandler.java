@@ -5,6 +5,7 @@ import com.learn.english.model.UserState;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.service.TelegramHelperService;
 import com.learn.english.service.WordService;
+import com.learn.english.utils.TextInput;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
@@ -61,6 +62,11 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
                 telegramHelperService.sendMessage(sendWithActionButtons(userState.getUserId(),
                         getQuestionText(userState.getRepeatingState().getCurrentRepeatingWord()),
                         List.of(EXIT), BUTTONS_PER_ROW)));
+    }
+
+    @Override
+    protected Integer freeTextLimit() {
+        return TextInput.WORD_LIMIT;
     }
 
     @Override

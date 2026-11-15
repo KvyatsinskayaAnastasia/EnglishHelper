@@ -5,9 +5,11 @@ import com.learn.english.service.TelegramHelperService;
 import org.mockito.ArgumentCaptor;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -31,11 +33,31 @@ public final class HandlerTestHelper {
 
     public static Update textUpdate(String text) {
         Update update = new Update();
+        update.setMessage(messageWithText(text));
+        return update;
+    }
+
+    public static Update stickerUpdate() {
+        Update update = new Update();
+        Message message = messageWithText(null);
+        message.setSticker(new Sticker());
+        update.setMessage(message);
+        return update;
+    }
+
+    public static Update photoUpdate() {
+        Update update = new Update();
+        Message message = messageWithText(null);
+        message.setPhoto(List.of(new PhotoSize()));
+        update.setMessage(message);
+        return update;
+    }
+
+    private static Message messageWithText(String text) {
         Message message = new Message();
         message.setFrom(new User(USER_ID, "Somebody", false));
         message.setText(text);
-        update.setMessage(message);
-        return update;
+        return message;
     }
 
     public static Update callbackUpdate(String data) {

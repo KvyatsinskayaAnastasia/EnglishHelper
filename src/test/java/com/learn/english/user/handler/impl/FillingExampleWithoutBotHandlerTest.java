@@ -1,6 +1,7 @@
 package com.learn.english.user.handler.impl;
 
 import com.learn.english.action.handler.BotActionHandler;
+import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.model.BotAction;
 import com.learn.english.model.ProposesState;
 import com.learn.english.model.UserState;
@@ -31,10 +32,16 @@ import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
+import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.photoUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
+import static com.learn.english.utils.TextInput.EXAMPLE_LIMIT;
+import static com.learn.english.utils.TextInput.MEDIA_REJECTED;
+import static com.learn.english.utils.TextInput.tooLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -109,6 +116,43 @@ class FillingExampleWithoutBotHandlerTest {
         assertThat(draft.getExampleSentence()).isEqualTo("already saved");
         verify(wordService).addNewWord(draft, USER_ID);
         assertSavedAndBackToMenu(userState, "already saved");
+    }
+
+    @Test
+    @DisplayName("tells the user the card already exists and returns to the menu")
+    void processAction_duplicate_returnsToMenu() {
+        UserState userState = draft(null);
+        doThrow(new DuplicateWordException("apple", "яблоко"))
+                .when(wordService).addNewWord(userState.getCurrentWordState(), USER_ID);
+
+        handler.processAction(userState, textUpdate("I eat an apple"));
+
+        assertThat(userState.getCurrentWordState()).isNull();
+        assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
+        SendMessage message = onlyMessage(telegramHelperService);
+        assertThat(message.getText()).isEqualTo("Слово apple в значении яблоко уже есть.\nВыберите действие:");
+        assertThat(callbackData(message)).containsExactly(
+                ADD_WORD_REQUEST_ORIGINAL.getCode(),
+                REPEATING_PLANNED.getCode(),
+                REPEATING_RANDOM.getCode());
+        verify(userStateService).saveUserState(userState);
+    }
+
+    @Test
+    @DisplayName("does not save a photo or an example past the column limit")
+    void processAction_photoAndTooLong_doNotSave() {
+        UserState photo = draft(null);
+        handler.processAction(photo, photoUpdate());
+        assertThat(photo.getUserStatus()).isEqualTo(UserStatus.FILLING_EXAMPLE_WITHOUT_BOT);
+        assertThat(photo.getCurrentWordState().getExampleSentence()).isNull();
+
+        UserState tooLong = draft(null);
+        handler.processAction(tooLong, textUpdate("e".repeat(EXAMPLE_LIMIT + 1)));
+        assertThat(tooLong.getCurrentWordState().getExampleSentence()).isNull();
+        assertThat(tooLong.getUserStatus()).isEqualTo(UserStatus.FILLING_EXAMPLE_WITHOUT_BOT);
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText)
+                .containsExactly(MEDIA_REJECTED, tooLong(EXAMPLE_LIMIT));
+        verifyNoInteractions(wordService);
     }
 
     private void assertSavedAndBackToMenu(UserState userState, String example) {

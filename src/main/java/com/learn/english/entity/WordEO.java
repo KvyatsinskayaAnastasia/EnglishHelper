@@ -12,7 +12,9 @@ import java.util.UUID;
 @Entity
 @Getter
 @Setter
-@Table(name = "word")
+@Table(name = "word", uniqueConstraints = @UniqueConstraint(
+        name = "original_translation_user_id_uniq",
+        columnNames = {"original", "translation", "user_id"}))
 public class WordEO {
     @Id
     @GeneratedValue
@@ -31,7 +33,7 @@ public class WordEO {
     @Column(name = "repeated_count", nullable = false)
     int repeatedCount;
 
-    @Column(name = "repeat_at", nullable = false)
+    @Column(name = "repeat_at")
     LocalDateTime repeatAt;
 
     @Column(name = "user_id", nullable = false)

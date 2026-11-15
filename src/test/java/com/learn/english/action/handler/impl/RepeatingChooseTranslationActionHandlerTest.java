@@ -33,6 +33,7 @@ import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
 import static com.learn.english.helper.HandlerTestHelper.sentMessages;
+import static com.learn.english.helper.HandlerTestHelper.photoUpdate;
 import static com.learn.english.helper.HandlerTestHelper.stubSend;
 import static com.learn.english.helper.HandlerTestHelper.textUpdate;
 import static com.learn.english.helper.HandlerTestHelper.word;
@@ -277,6 +278,21 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThatThrownBy(() -> handler.processAction(userState, callbackUpdate("9")))
                     .isInstanceOf(IndexOutOfBoundsException.class);
             verify(telegramHelperService, never()).sendMessage(any());
+        }
+
+        @Test
+        @DisplayName("does not treat a photo as an answer")
+        void processAction_photo_keepsTheQuestion() {
+            WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
+            UserState userState = playing(apple, List.of(apple), List.of("муровей", "яблоко", "собака"));
+
+            handler.processAction(userState, photoUpdate());
+
+            assertThat(apple.isRepeatFailed()).isFalse();
+            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("муровей", "яблоко", "собака");
+            assertThat(onlyMessage(telegramHelperService).getText()).startsWith(
+                    "Стикеры и фото не принимаются. Пришлите текст.");
+            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
         }
     }
 

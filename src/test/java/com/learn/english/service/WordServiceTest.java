@@ -1,6 +1,7 @@
 package com.learn.english.service;
 
 import com.learn.english.entity.WordEO;
+import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.mapper.WordMapper;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,7 +32,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -46,6 +51,9 @@ class WordServiceTest {
 
     @Mock
     private WordMapper wordMapper;
+
+    @Mock
+    private WordArchiveService wordArchiveService;
 
     @InjectMocks
     private BaseWordService service;
@@ -137,7 +145,33 @@ class WordServiceTest {
             LocalDateTime after = LocalDateTime.now();
 
             assertThat(entity.getRepeatAt()).isBetween(before, after);
+            verify(wordRepository).existsByOriginalAndTranslationAndUserId("cat", "кот", USER_ID);
             verify(wordRepository).save(entity);
+        }
+
+        @Test
+        @DisplayName("saves the same original when the translation is different")
+        void addNewWord_sameOriginalDifferentTranslation_saves() {
+            WordState state = new WordState("cat", "кошка", "A cat");
+            WordEO entity = new WordEO();
+            when(wordMapper.toEO(state, USER_ID)).thenReturn(entity);
+            when(wordRepository.existsByOriginalAndTranslationAndUserId("cat", "кошка", USER_ID)).thenReturn(false);
+
+            service.addNewWord(state, USER_ID);
+
+            verify(wordRepository).save(entity);
+        }
+
+        @Test
+        @DisplayName("does not save a card with the same original and translation for the user")
+        void addNewWord_sameOriginalAndTranslation_throws() {
+            WordState state = new WordState("cat", "кот", "I have a cat");
+            when(wordRepository.existsByOriginalAndTranslationAndUserId("cat", "кот", USER_ID)).thenReturn(true);
+
+            assertThatThrownBy(() -> service.addNewWord(state, USER_ID))
+                    .isInstanceOf(DuplicateWordException.class);
+            verify(wordRepository, never()).save(any());
+            verifyNoInteractions(wordMapper);
         }
 
         @Test
@@ -308,20 +342,34 @@ class WordServiceTest {
     }
 
     @Nested
-    @DisplayName("deleteLearnedWords")
-    class DeleteLearnedWordsTests {
+    @DisplayName("moveLearnedWordsToArchive")
+    class MoveLearnedWordsToArchiveTests {
 
         @Test
-        @DisplayName("loads words with repeatedCount >= 8, deletes them and returns the list")
-        void deleteLearnedWords_deletesAndReturns() {
+        @DisplayName("copies learned words into the archive before deleting them")
+        void moveLearnedWordsToArchive_savesThenDeletes() {
             WordEO learned = existingWord(LEARNED_COUNT);
             when(wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(LEARNED_COUNT))
                     .thenReturn(List.of(learned));
 
-            List<WordEO> result = service.deleteLearnedWords();
+            service.moveLearnedWordsToArchive();
 
-            assertThat(result).containsExactly(learned);
-            verify(wordRepository).deleteAll(List.of(learned));
+            InOrder order = inOrder(wordArchiveService, wordRepository);
+            order.verify(wordArchiveService).saveArchiveWords(List.of(learned));
+            order.verify(wordRepository).deleteAll(List.of(learned));
+        }
+
+        @Test
+        @DisplayName("does nothing when no word has reached the learned threshold")
+        void moveLearnedWordsToArchive_nothingLearned_doesNothing() {
+            when(wordRepository.findWordEOSByRepeatedCountGreaterThanEqual(LEARNED_COUNT))
+                    .thenReturn(List.of());
+
+            service.moveLearnedWordsToArchive();
+
+            verify(wordRepository).findWordEOSByRepeatedCountGreaterThanEqual(LEARNED_COUNT);
+            verifyNoMoreInteractions(wordRepository);
+            verifyNoInteractions(wordArchiveService);
         }
     }
 

@@ -4,40 +4,27 @@ import com.learn.english.action.handler.BotActionHandler;
 import com.learn.english.model.BotAction;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
+import com.learn.english.model.WordState;
 import com.learn.english.service.TelegramHelperService;
 import com.learn.english.service.UserStateService;
 import com.learn.english.service.WordService;
-import com.learn.english.user.handler.UserStatusHandler;
-import lombok.RequiredArgsConstructor;
+import com.learn.english.utils.TextInput;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
-import java.util.List;
 import java.util.Map;
-
-import static com.learn.english.model.BotAction.ADD_WORD_SAVE_WORD;
-import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
-import static com.learn.english.model.BotAction.EXIT;
-import static com.learn.english.model.BotAction.REPEATING_PLANNED;
-import static com.learn.english.model.BotAction.REPEATING_RANDOM;
+import java.util.Optional;
 
 @Component
-@RequiredArgsConstructor
-public class FillingExampleWithoutBotHandler implements UserStatusHandler {
-    private static final List<BotAction> ENABLED_FILLING_EXAMPLE_WITHOUT_BOT_BOT_ACTIONS = List.of(
-            EXIT
-    );
-    private static final List<BotAction> BASE_OPTIONS = List.of(
-            ADD_WORD_REQUEST_ORIGINAL,
-            REPEATING_PLANNED,
-            REPEATING_RANDOM
-    );
+public class FillingExampleWithoutBotHandler extends FillingExampleStatusHandler {
 
-    private final Map<BotAction, BotActionHandler> botActionHandlers;
-    private final TelegramHelperService telegramHelperService;
-    private final UserStateService userStateService;
-    private final WordService wordService;
+    public FillingExampleWithoutBotHandler(Map<BotAction, BotActionHandler> botActionHandlers,
+                                           TelegramHelperService telegramHelperService,
+                                           UserStateService userStateService,
+                                           WordService wordService) {
+        super(botActionHandlers, telegramHelperService, userStateService, wordService);
+    }
 
     @Override
     public UserStatus getUserStatus() {
@@ -45,24 +32,16 @@ public class FillingExampleWithoutBotHandler implements UserStatusHandler {
     }
 
     @Override
-    public void processAction(UserState userState, Update update) {
-        var botAction = getBotAction(update);
-        if (botAction != null && ENABLED_FILLING_EXAMPLE_WITHOUT_BOT_BOT_ACTIONS.contains(botAction)) {
-            botActionHandlers.get(botAction).processAction(userState, update);
-            return;
+    protected boolean takeExample(UserState userState, Update update) {
+        WordState wordState = userState.getCurrentWordState();
+        if (StringUtils.isNotBlank(wordState.getExampleSentence())) {
+            return true;
         }
-        var wordState = userState.getCurrentWordState();
-        if (StringUtils.isBlank(wordState.getExampleSentence())) {
-            wordState.setExampleSentence(update.getMessage().getText());
+        Optional<String> example = acceptText(userState, update, TextInput.EXAMPLE_LIMIT);
+        if (example.isEmpty()) {
+            return false;
         }
-        wordService.addNewWord(wordState, userState.getUserId());
-        userState.setCurrentWordState(null);
-        userState.setProposesState(null);
-        userState.setUserStatus(UserStatus.NO_ACTIVITY);
-        userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(sendWithActionButtons(userState.getUserId(),
-                String.format(ADD_WORD_SAVE_WORD.getAnswerMessage(), wordState.getOriginal(),
-                        wordState.getTranslation(), wordState.getExampleSentence()),
-                BASE_OPTIONS, 2)));
-        userStateService.saveUserState(userState);
+        wordState.setExampleSentence(example.get());
+        return true;
     }
 }

@@ -33,18 +33,13 @@ public class WordForRepeat implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        WordForRepeat that = (WordForRepeat) o;
-        return Objects.equals(original, that.original)
-                && Objects.equals(translation, that.translation)
-                && Objects.equals(exampleSentence, that.exampleSentence)
-                && Objects.equals(userId, that.userId)
-                && Objects.equals(id, that.id)
-                && Objects.equals(isRepeatFailed, that.isRepeatFailed);
+        if (this == o) return true;
+        if (!(o instanceof WordForRepeat that)) return false;
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(original, translation, exampleSentence, userId, id, isRepeatFailed);
+        return Objects.hash(id);
     }
 }

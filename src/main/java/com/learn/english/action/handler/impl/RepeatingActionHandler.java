@@ -8,12 +8,14 @@ import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.service.WordService;
+import com.learn.english.utils.TextInput;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
 import static com.learn.english.model.BotAction.EXIT;
@@ -56,9 +58,27 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
         }
     }
 
+    protected Integer freeTextLimit() {
+        return null;
+    }
+
     protected void handleUserAnswer(UserState userState, Update update) {
+        if (TextInput.isStickerOrPhoto(update)) {
+            askAgain(userState, TextInput.MEDIA_REJECTED);
+            return;
+        }
+        String freeText = TextInput.value(update);
+        Integer limit = freeTextLimit();
+        if (freeText != null && limit != null && TextInput.exceeds(freeText, limit)) {
+            askAgain(userState, TextInput.tooLong(limit));
+            return;
+        }
         try {
             var answer = getSelectedText(userState, update);
+            if (answer == null || answer.isBlank()) {
+                askAgain(userState, TextInput.TEXT_REQUIRED);
+                return;
+            }
             if (isCorrectAnswer(userState, answer)) {
                 handleCorrectAnswer(userState);
                 handleNextWord(userState);
@@ -106,8 +126,10 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
         RepeatingState repeatingState = userState.getRepeatingState();
         WordForRepeat currentWord = repeatingState.getCurrentRepeatingWord();
 
-        wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
-        repeatingState.getRepeatingWords().remove(currentWord);
+        if (repeatingState.isIncreaseRepeatingCount()) {
+            wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
+        }
+        repeatingState.getRepeatingWords().removeIf(word -> Objects.equals(currentWord.getId(), word.getId()));
 
         telegramHelperService.sendMessage(SendMessage.builder()
                 .chatId(userState.getUserId())
@@ -124,6 +146,15 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                         getRetryText(userState, answer),
                         userState.getRepeatingState().getRepeatingLabels(),
                         List.of(EXIT), BUTTONS_PER_ROW)));
+    }
+
+    protected void askAgain(UserState userState, String reason) {
+        String prompt = reason + "\n" + getQuestionText(userState.getRepeatingState().getCurrentRepeatingWord());
+        List<String> labels = userState.getRepeatingState().getRepeatingLabels();
+        userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(
+                labels == null || labels.isEmpty()
+                        ? sendWithActionButtons(userState.getUserId(), prompt, List.of(EXIT), BUTTONS_PER_ROW)
+                        : sendWithNumberButtons(userState.getUserId(), prompt, labels, List.of(EXIT), BUTTONS_PER_ROW)));
     }
 
     protected void handleInvalidInput(UserState userState, String answer) {

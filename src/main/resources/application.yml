@@ -7,13 +7,15 @@ spring:
     password: postgres
     driver-class-name: org.postgresql.Driver
   application:
-   name: EnglishHelperBot
+    name: EnglishHelperBot
   redis:
     data:
       host: ${REDIS_HOST:localhost}
 bot:
   name: ${TELEGRAM_BOT_USERNAME:}
   token: ${TELEGRAM_BOT_TOKEN:}
+  schedule:
+    zone: ${BOT_SCHEDULE_ZONE:Europe/Moscow}
 #debug: true
 #logging:
 #  level:
