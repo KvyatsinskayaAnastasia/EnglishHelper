@@ -1,3 +1,5 @@
+name: Publish image
+
 on:
   push:
     branches: [ "master" ]
@@ -8,6 +10,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Image tags
+        id: tags
+        run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
@@ -22,3 +27,5 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/english:latest
+            ${{ secrets.DOCKER_USERNAME }}/english:${{ steps.tags.outputs.short_sha }}
+            ${{ secrets.DOCKER_USERNAME }}/english:${{ github.sha }}
