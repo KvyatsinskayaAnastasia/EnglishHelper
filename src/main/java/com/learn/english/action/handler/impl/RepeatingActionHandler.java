@@ -2,7 +2,6 @@ package com.learn.english.action.handler.impl;
 
 import com.learn.english.action.handler.BotActionHandler;
 import com.learn.english.service.TelegramHelperService;
-import com.learn.english.model.Icon;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
@@ -41,8 +40,6 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     protected abstract boolean isCorrectAnswer(UserState userState, String answer);
 
     protected abstract String getQuestionText(WordForRepeat currentWord);
-
-    protected abstract String getRetryText(UserState userState, String message);
 
     protected abstract List<String> getRandomWords(UserState userState, WordForRepeat word);
 
@@ -83,7 +80,8 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 handleCorrectAnswer(userState);
                 handleNextWord(userState);
             } else {
-                handleWrongAnswer(userState, update, answer);
+                handleWrongAnswer(userState, answer);
+                handleNextWordAfterMiss(userState);
             }
         } catch (NumberFormatException e) {
             String rawAnswer = update.getCallbackQuery() != null
@@ -104,24 +102,6 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
                 : update.getMessage().getText();
     }
 
-    protected void markWrongAnswer(UserState userState, Update update) {
-        if (update.getCallbackQuery() != null) {
-            var selectedIndex = Integer.parseInt(update.getCallbackQuery().getData()) - 1;
-            var selectedText = userState.getRepeatingState()
-                    .getRepeatingLabels()
-                    .get(selectedIndex);
-            userState.getRepeatingState()
-                    .getRepeatingLabels().set(selectedIndex, selectedText.concat(" " + Icon.NOT.get()));
-        } else {
-            var selectedText = update.getMessage().getText();
-            var selectedIndex = userState.getRepeatingState().getRepeatingLabels().indexOf(selectedText);
-            if (selectedIndex != -1) {
-                userState.getRepeatingState()
-                        .getRepeatingLabels().set(selectedIndex, selectedText.concat(" " + Icon.NOT.get()));
-            }
-        }
-    }
-
     protected void handleCorrectAnswer(UserState userState) {
         RepeatingState repeatingState = userState.getRepeatingState();
         WordForRepeat currentWord = repeatingState.getCurrentRepeatingWord();
@@ -130,22 +110,24 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
             wordService.updateRepeatedWord(currentWord.getId(), currentWord.isRepeatFailed());
         }
         repeatingState.getRepeatingWords().removeIf(word -> Objects.equals(currentWord.getId(), word.getId()));
+        sendText(userState, "Правильно!\n" + wordAndTranslation(currentWord));
+    }
 
+    protected void handleWrongAnswer(UserState userState, String answer) {
+        WordForRepeat missedWord = userState.getRepeatingState().getCurrentRepeatingWord();
+        missedWord.setRepeatFailed(true);
+        sendText(userState, "Неправильно: " + answer + "\n" + wordAndTranslation(missedWord));
+    }
+
+    private void sendText(UserState userState, String text) {
         telegramHelperService.sendMessage(SendMessage.builder()
                 .chatId(userState.getUserId())
-                .text(String.format("Правильно!\nСлово: %s\nПеревод: %s", currentWord.getOriginal(),
-                        currentWord.getTranslation()))
+                .text(text)
                 .build());
     }
 
-    protected void handleWrongAnswer(UserState userState, Update update, String answer) {
-        userState.getRepeatingState().getCurrentRepeatingWord().setRepeatFailed(true);
-        markWrongAnswer(userState, update);
-        userState.setLastBotCommandMessageId(
-                telegramHelperService.sendMessage(sendWithNumberButtons(userState.getUserId(),
-                        getRetryText(userState, answer),
-                        userState.getRepeatingState().getRepeatingLabels(),
-                        List.of(EXIT), BUTTONS_PER_ROW)));
+    private static String wordAndTranslation(WordForRepeat word) {
+        return "Слово: " + word.getOriginal() + "\nПеревод: " + word.getTranslation();
     }
 
     protected void askAgain(UserState userState, String reason) {
@@ -158,21 +140,26 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
     }
 
     protected void handleInvalidInput(UserState userState, String answer) {
-        userState.setLastBotCommandMessageId(
-                telegramHelperService.sendMessage(sendWithNumberButtons(userState.getUserId(),
-                        "Ответ " + answer + " отсутствует. Пожалуйста, выберите вариант из предложенных: " +
-                                getRetryText(userState, answer),
-                        userState.getRepeatingState().getRepeatingLabels(),
-                        List.of(EXIT),
-                        BUTTONS_PER_ROW)));
+        askAgain(userState, "Ответ " + answer + " отсутствует. Пожалуйста, выберите вариант из предложенных:");
     }
 
     protected void handleNextWord(UserState userState) {
+        askNextWord(userState, userState.getRepeatingState().getRepeatingWords());
+    }
+
+    private void handleNextWordAfterMiss(UserState userState) {
+        askNextWord(userState, userState.getRepeatingState().candidatesExceptCurrent());
+    }
+
+    private void askNextWord(UserState userState, List<WordForRepeat> candidates) {
         if (isAllWordsRepeated(userState)) {
             handleCompletion(userState);
             return;
         }
-        prepareNextWord(userState);
+        RepeatingState repeatingState = userState.getRepeatingState();
+        WordForRepeat nextWord = getRandomWord(candidates);
+        repeatingState.setCurrentRepeatingWord(nextWord);
+        repeatingState.setRepeatingLabels(prepareWords(userState, nextWord));
         generateQuestionMessage(userState);
     }
 
@@ -190,15 +177,6 @@ public abstract class RepeatingActionHandler implements BotActionHandler {
 
         userState.setLastBotCommandMessageId(telegramHelperService.sendMessage(
                 sendWithActionButtons(userState.getUserId(), message, BASE_OPTIONS, OPTIONS_BUTTONS_PER_ROW)));
-    }
-
-    protected void prepareNextWord(UserState userState) {
-        RepeatingState repeatingState = userState.getRepeatingState();
-        WordForRepeat nextWord = getRandomWord(repeatingState.getRepeatingWords());
-        repeatingState.setCurrentRepeatingWord(nextWord);
-
-        List<String> words = prepareWords(userState, nextWord);
-        repeatingState.setRepeatingLabels(words);
     }
 
     protected WordForRepeat getRandomWord(List<WordForRepeat> words) {

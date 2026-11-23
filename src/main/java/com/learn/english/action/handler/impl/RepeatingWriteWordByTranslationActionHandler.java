@@ -7,7 +7,6 @@ import com.learn.english.service.TelegramHelperService;
 import com.learn.english.service.WordService;
 import com.learn.english.utils.TextInput;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.Collections;
 import java.util.List;
@@ -39,14 +38,6 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
     }
 
     @Override
-    protected String getRetryText(UserState userState, String message) {
-        var currentWord = userState.getRepeatingState().getCurrentRepeatingWord();
-        return "Не правильный ответ: " + message + "\nПопробуйте еще!\nВведите слово, которое переводится как: " + currentWord.getTranslation()
-                + ".\nподсказка: " + currentWord.getOriginal().substring(0,
-                Math.min(currentWord.getCountOfAttempts(), currentWord.getOriginal().length()));
-    }
-
-    @Override
     protected List<String> getRandomWords(UserState userState, WordForRepeat word) {
         return Collections.emptyList();
     }
@@ -67,17 +58,6 @@ public class RepeatingWriteWordByTranslationActionHandler extends RepeatingActio
     @Override
     protected Integer freeTextLimit() {
         return TextInput.WORD_LIMIT;
-    }
-
-    @Override
-    protected void handleWrongAnswer(UserState userState, Update update, String answer) {
-        var currentRepeatingWord = userState.getRepeatingState().getCurrentRepeatingWord();
-        currentRepeatingWord.setRepeatFailed(true);
-        currentRepeatingWord.increaseCountOfAttempts();
-        userState.setLastBotCommandMessageId(telegramHelperService
-                .sendMessage(sendWithActionButtons(userState.getUserId(),
-                        getRetryText(userState, answer),
-                        List.of(EXIT), BUTTONS_PER_ROW)));
     }
 
     @Override

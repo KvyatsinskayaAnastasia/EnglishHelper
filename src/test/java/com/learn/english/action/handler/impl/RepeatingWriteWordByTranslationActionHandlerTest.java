@@ -88,22 +88,41 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
     }
 
     @Test
-    @DisplayName("grows the hint by one letter after each wrong answer and stops at the whole word")
-    void processAction_wrongAnswers_growHintUpToWordLength() {
+    @DisplayName("keeps a missed card in the batch and shows the right pair")
+    void processAction_wrongAnswers_keepCardUntilItIsKnown() {
         WordForRepeat card = word(APPLE_ID, "to", "к");
         UserState userState = playing(card, List.of(card));
 
         handler.processAction(userState, textUpdate("no"));
         handler.processAction(userState, textUpdate("nope"));
-        handler.processAction(userState, textUpdate("zzz"));
 
         assertThat(card.isRepeatFailed()).isTrue();
-        assertThat(card.getCountOfAttempts()).isEqualTo(3);
         assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(card);
+        assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(card);
         assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
-                hint("no", "к", "t"),
-                hint("nope", "к", "to"),
-                hint("zzz", "к", "to"));
+                "Неправильно: no\nСлово: to\nПеревод: к",
+                "Введите слово, которое переводится как: к",
+                "Неправильно: nope\nСлово: to\nПеревод: к",
+                "Введите слово, которое переводится как: к");
+        verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("brings a missed card back later in the same batch")
+    void processAction_wrongAnswer_returnsCardInsideBatch() {
+        WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
+        WordForRepeat dog = word(DOG_ID, "dog", "собака");
+        UserState userState = playing(apple, List.of(apple, dog));
+
+        handler.processAction(userState, textUpdate("aple"));
+
+        assertThat(apple.isRepeatFailed()).isTrue();
+        assertThat(dog.isRepeatFailed()).isFalse();
+        assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple, dog);
+        assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
+        assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
+                "Неправильно: aple\nСлово: apple\nПеревод: яблоко",
+                "Введите слово, которое переводится как: собака");
         verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
     }
 
@@ -138,19 +157,19 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
         handler.processAction(userState, textUpdate("apple"));
 
         assertThat(apple.isRepeatFailed()).isTrue();
-        assertThat(apple.getCountOfAttempts()).isEqualTo(1);
         verify(wordService).updateRepeatedWord(APPLE_ID, true);
         assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
         assertThat(userState.getRepeatingState()).isNull();
         assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
-                hint("aple", "яблоко", "a"),
+                "Неправильно: aple\nСлово: apple\nПеревод: яблоко",
+                "Введите слово, которое переводится как: яблоко",
                 "Правильно!\nСлово: apple\nПеревод: яблоко",
                 "Все слова повторены!");
     }
 
     @Test
-    @DisplayName("does not count a sticker or an overlong answer as an attempt")
-    void processAction_stickerAndTooLong_areNotAttempts() {
+    @DisplayName("does not treat a sticker or an overlong answer as a mistake")
+    void processAction_stickerAndTooLong_areNotMistakes() {
         WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
         UserState userState = playing(apple, List.of(apple));
 
@@ -158,17 +177,11 @@ class RepeatingWriteWordByTranslationActionHandlerTest {
         handler.processAction(userState, textUpdate("a".repeat(WORD_LIMIT + 1)));
 
         assertThat(apple.isRepeatFailed()).isFalse();
-        assertThat(apple.getCountOfAttempts()).isZero();
         assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
         assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
                 "Стикеры и фото не принимаются. Пришлите текст.\nВведите слово, которое переводится как: яблоко",
                 tooLong(WORD_LIMIT) + "\nВведите слово, которое переводится как: яблоко");
         verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
-    }
-
-    private static String hint(String answer, String translation, String prefix) {
-        return "Не правильный ответ: " + answer + "\nПопробуйте еще!\nВведите слово, которое переводится как: "
-                + translation + ".\nподсказка: " + prefix;
     }
 
     private static UserState openGame(List<WordForRepeat> words) {

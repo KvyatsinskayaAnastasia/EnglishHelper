@@ -120,7 +120,7 @@ public class BaseWordService implements WordService {
 
     private static WordForRepeat toWordForRepeat(WordEO word) {
         return new WordForRepeat(word.getOriginal(), word.getTranslation(), word.getExampleSentence(),
-                word.getUserId(), word.getId(), false, 0);
+                word.getUserId(), word.getId(), false);
     }
 
     private List<WordEO> getRandomWordEOSByUserId(Long userId, UUID excludeWordId, Integer size) {

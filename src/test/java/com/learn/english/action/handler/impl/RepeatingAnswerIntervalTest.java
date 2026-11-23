@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -132,10 +133,8 @@ class RepeatingAnswerIntervalTest {
         UserState restored = redisRoundTrip(userState);
         WordForRepeat restoredCurrent = restored.getRepeatingState().getCurrentRepeatingWord();
         WordForRepeat restoredQueued = restored.getRepeatingState().getRepeatingWords().get(0);
-        assertThat(restoredCurrent).isNotSameAs(restoredQueued);
+        assertThat(restoredCurrent).isSameAs(restoredQueued);
         assertThat(restoredCurrent.isRepeatFailed()).isTrue();
-        assertThat(restoredQueued.isRepeatFailed()).isFalse();
-        assertThat(restoredCurrent).isEqualTo(restoredQueued);
 
         handler.processAction(restored, callbackUpdate("1"));
 
@@ -143,6 +142,31 @@ class RepeatingAnswerIntervalTest {
         assertThat(restored.getRepeatingState()).isNull();
         assertThat(card.getRepeatedCount()).isEqualTo(1);
         verify(wordRepository, times(1)).save(card);
+    }
+
+    @Test
+    @DisplayName("reads a saved session that still contains the removed attempt counter")
+    void redisRoundTrip_legacyAttemptCount_keepsFailureFlag() {
+        WordForRepeat queued = word(WORD_ID, "apple", "яблоко");
+        WordForRepeat current = word(WORD_ID, "apple", "яблоко");
+        current.setRepeatFailed(true);
+        UserState userState = new UserState(USER_ID);
+        userState.setRepeatingState(new RepeatingState(
+                new ArrayList<>(List.of(queued)),
+                current,
+                new ArrayList<>(List.of("яблоко")),
+                true,
+                REPEATING_CHOOSE_TRANSLATION));
+
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
+        String json = new String(serializer.serialize(userState), StandardCharsets.UTF_8);
+        String legacy = json.replace("\"repeatFailed\":true", "\"repeatFailed\":true,\"countOfAttempts\":4");
+
+        UserState restored = serializer.deserialize(legacy.getBytes(StandardCharsets.UTF_8), UserState.class);
+
+        WordForRepeat restoredCurrent = restored.getRepeatingState().getCurrentRepeatingWord();
+        assertThat(restoredCurrent.isRepeatFailed()).isTrue();
+        assertThat(restoredCurrent).isSameAs(restored.getRepeatingState().getRepeatingWords().get(0));
     }
 
     private static UserState redisRoundTrip(UserState userState) {

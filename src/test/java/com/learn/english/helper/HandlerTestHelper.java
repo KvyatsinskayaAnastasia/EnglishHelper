@@ -74,7 +74,7 @@ public final class HandlerTestHelper {
     }
 
     public static WordForRepeat word(UUID id, String original, String translation) {
-        return new WordForRepeat(original, translation, "example of " + original, USER_ID, id, false, 0);
+        return new WordForRepeat(original, translation, "example of " + original, USER_ID, id, false);
     }
 
     public static List<String> callbackData(SendMessage message) {

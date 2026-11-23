@@ -1,6 +1,5 @@
 package com.learn.english.action.handler.impl;
 
-import com.learn.english.model.Icon;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
@@ -194,56 +193,56 @@ class RepeatingChooseOriginalActionHandlerTest {
         }
 
         @Test
-        @DisplayName("marks the selected option and asks again when the number is wrong")
-        void processAction_wrongOption_marksItAndRetries() {
+        @DisplayName("keeps a missed card in the batch and asks it again when it is the last one")
+        void processAction_wrongOption_keepsTheOnlyCard() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
             UserState userState = playing(apple, List.of(apple), List.of("ant", "apple", "dog"));
+            when(wordService.getRandomOriginalsByUserId(USER_ID, APPLE_ID, 3)).thenReturn(List.of("ant", "dog"));
 
             handler.processAction(userState, callbackUpdate("1"));
 
-            String marked = "ant " + Icon.NOT.get();
-            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly(marked, "apple", "dog");
             assertThat(apple.isRepeatFailed()).isTrue();
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(apple);
             verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
-            SendMessage message = onlyMessage(telegramHelperService);
-            assertThat(message.getText()).isEqualTo(
-                    "Не правильный вариант: ant.\nПопробуйте еще раз!\nВыберете слово, которое переводится как: яблоко\n\n"
-                            + "1. " + marked + "\n2. apple\n3. dog");
+            List<SendMessage> messages = sentMessages(telegramHelperService);
+            assertThat(messages).extracting(SendMessage::getText).containsExactly(
+                    "Неправильно: ant\nСлово: apple\nПеревод: яблоко",
+                    "Выберите слово, которое переводится как: яблоко\n\n1. ant\n2. apple\n3. dog");
+            assertThat(messages.get(0).getReplyMarkup()).isNull();
             assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
         }
 
         @Test
-        @DisplayName("marks a wrong answer typed exactly as one of the options")
-        void processAction_wrongTextMatchingLabel_marksIt() {
+        @DisplayName("brings a missed card back later in the same batch")
+        void processAction_wrongOption_returnsCardInsideBatch() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
-            UserState userState = playing(apple, List.of(apple), List.of("ant", "apple", "dog"));
+            WordForRepeat dog = word(DOG_ID, "dog", "собака");
+            UserState userState = playing(apple, List.of(apple, dog), List.of("ant", "apple"));
+            when(wordService.getRandomOriginalsByUserId(USER_ID, DOG_ID, 3)).thenReturn(List.of("ant"));
 
-            handler.processAction(userState, textUpdate("ant"));
+            handler.processAction(userState, callbackUpdate("1"));
 
-            assertThat(userState.getRepeatingState().getRepeatingLabels().get(0))
-                    .isEqualTo("ant " + Icon.NOT.get());
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple, dog);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
             assertThat(apple.isRepeatFailed()).isTrue();
+            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
         }
 
         @Test
-        @DisplayName("keeps the options unchanged when the typed answer is not one of them")
-        void processAction_wrongTextNotInLabels_leavesLabels() {
+        @DisplayName("keeps a typed miss in the batch and shows the right pair")
+        void processAction_wrongText_keepsCardInBatch() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
             UserState userState = playing(apple, List.of(apple), List.of("ant", "apple", "dog"));
+            when(wordService.getRandomOriginalsByUserId(USER_ID, APPLE_ID, 3)).thenReturn(List.of("ant"));
 
             handler.processAction(userState, textUpdate("nope"));
 
-            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("ant", "apple", "dog");
-            assertThat(onlyMessage(telegramHelperService).getText()).isEqualTo(
-                    """
-                            Не правильный вариант: nope.
-                            Попробуйте еще раз!
-                            Выберете слово, которое переводится как: яблоко
-                            
-                            1. ant
-                            2. apple
-                            3. dog""");
+            assertThat(apple.isRepeatFailed()).isTrue();
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+            assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
+                    "Неправильно: nope\nСлово: apple\nПеревод: яблоко",
+                    "Выберите слово, которое переводится как: яблоко\n\n1. ant\n2. apple");
         }
 
         @Test
@@ -258,10 +257,8 @@ class RepeatingChooseOriginalActionHandlerTest {
             assertThat(apple.isRepeatFailed()).isFalse();
             assertThat(onlyMessage(telegramHelperService).getText()).isEqualTo(
                     """
-                            Ответ abc отсутствует. Пожалуйста, выберите вариант из предложенных: \
-                            Не правильный вариант: abc.
-                            Попробуйте еще раз!
-                            Выберете слово, которое переводится как: cat
+                            Ответ abc отсутствует. Пожалуйста, выберите вариант из предложенных:
+                            Выберите слово, которое переводится как: cat
                             
                             1. ant
                             2. apple

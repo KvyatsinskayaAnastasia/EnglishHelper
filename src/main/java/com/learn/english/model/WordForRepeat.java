@@ -1,5 +1,6 @@
 package com.learn.english.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS,
         include = JsonTypeInfo.As.PROPERTY,
         property = "@class")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WordForRepeat implements Serializable {
     private String original;
     private String translation;
@@ -25,11 +27,6 @@ public class WordForRepeat implements Serializable {
 
     @Setter
     private boolean isRepeatFailed;
-    private int countOfAttempts;
-
-    public void increaseCountOfAttempts() {
-        countOfAttempts++;
-    }
 
     @Override
     public boolean equals(Object o) {

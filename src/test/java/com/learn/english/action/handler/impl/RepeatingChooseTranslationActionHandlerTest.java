@@ -1,6 +1,5 @@
 package com.learn.english.action.handler.impl;
 
-import com.learn.english.model.Icon;
 import com.learn.english.model.RepeatingState;
 import com.learn.english.model.UserState;
 import com.learn.english.model.UserStatus;
@@ -41,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -195,56 +195,66 @@ class RepeatingChooseTranslationActionHandlerTest {
         }
 
         @Test
-        @DisplayName("marks the selected option and asks again when the number is wrong")
-        void processAction_wrongOption_marksItAndRetries() {
+        @DisplayName("keeps a missed card in the batch and asks it again when it is the last one")
+        void processAction_wrongOption_keepsTheOnlyCard() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
             UserState userState = playing(apple, List.of(apple), List.of("муровей", "яблоко", "собака"));
+            when(wordService.getRandomTranslationsByUserId(USER_ID, APPLE_ID, 3))
+                    .thenReturn(List.of("муровей", "собака"));
 
             handler.processAction(userState, callbackUpdate("1"));
 
-            String marked = "муровей " + Icon.NOT.get();
-            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly(marked, "яблоко", "собака");
             assertThat(apple.isRepeatFailed()).isTrue();
             assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(apple);
             verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
-            SendMessage message = onlyMessage(telegramHelperService);
-            assertThat(message.getText()).isEqualTo(
-                    "Не правильный вариант: муровей.\nПопробуйте еще раз!\nВыберете перевод слова: apple\n\n"
-                            + "1. " + marked + "\n2. яблоко\n3. собака");
+            List<SendMessage> messages = sentMessages(telegramHelperService);
+            assertThat(messages).extracting(SendMessage::getText).containsExactly(
+                    "Неправильно: муровей\nСлово: apple\nПеревод: яблоко",
+                    "Выберите перевод слова: apple\n\n1. муровей\n2. собака\n3. яблоко");
+            assertThat(messages.get(0).getReplyMarkup()).isNull();
             assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
         }
 
         @Test
-        @DisplayName("marks a wrong answer typed exactly as one of the options")
-        void processAction_wrongTextMatchingLabel_marksIt() {
+        @DisplayName("brings a missed card back later in the same batch")
+        void processAction_wrongOption_returnsCardInsideBatch() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
-            UserState userState = playing(apple, List.of(apple), List.of("муровей", "яблоко", "собака"));
+            WordForRepeat dog = word(DOG_ID, "dog", "собака");
+            UserState userState = playing(apple, List.of(apple, dog), List.of("муровей", "яблоко"));
+            when(wordService.getRandomTranslationsByUserId(USER_ID, DOG_ID, 3)).thenReturn(List.of("муровей"));
+            when(wordService.getRandomTranslationsByUserId(USER_ID, APPLE_ID, 3)).thenReturn(List.of("собака"));
 
-            handler.processAction(userState, textUpdate("муровей"));
+            handler.processAction(userState, callbackUpdate("1"));
 
-            assertThat(userState.getRepeatingState().getRepeatingLabels().get(0))
-                    .isEqualTo("муровей " + Icon.NOT.get());
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple, dog);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(dog);
             assertThat(apple.isRepeatFailed()).isTrue();
+            assertThat(dog.isRepeatFailed()).isFalse();
+            verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
+
+            handler.processAction(userState, textUpdate("собака"));
+
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+            assertThat(userState.getRepeatingState().getCurrentRepeatingWord()).isSameAs(apple);
+            verify(wordService).updateRepeatedWord(DOG_ID, false);
+            verify(wordService, never()).updateRepeatedWord(eq(APPLE_ID), anyBoolean());
         }
 
         @Test
-        @DisplayName("keeps the options unchanged when the typed answer is not one of them")
-        void processAction_wrongTextNotInLabels_leavesLabels() {
+        @DisplayName("keeps a typed miss in the batch and shows the right pair")
+        void processAction_wrongText_keepsCardInBatch() {
             WordForRepeat apple = word(APPLE_ID, "apple", "яблоко");
             UserState userState = playing(apple, List.of(apple), List.of("муровей", "яблоко", "собака"));
+            when(wordService.getRandomTranslationsByUserId(USER_ID, APPLE_ID, 3)).thenReturn(List.of("муровей"));
 
             handler.processAction(userState, textUpdate("nope"));
 
-            assertThat(userState.getRepeatingState().getRepeatingLabels()).containsExactly("муровей", "яблоко", "собака");
-            assertThat(onlyMessage(telegramHelperService).getText()).isEqualTo(
-                    """
-                            Не правильный вариант: nope.
-                            Попробуйте еще раз!
-                            Выберете перевод слова: apple
-                            
-                            1. муровей
-                            2. яблоко
-                            3. собака""");
+            assertThat(apple.isRepeatFailed()).isTrue();
+            assertThat(userState.getRepeatingState().getRepeatingWords()).containsExactly(apple);
+            assertThat(sentMessages(telegramHelperService)).extracting(SendMessage::getText).containsExactly(
+                    "Неправильно: nope\nСлово: apple\nПеревод: яблоко",
+                    "Выберите перевод слова: apple\n\n1. муровей\n2. яблоко");
         }
 
         @Test
@@ -259,10 +269,8 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(apple.isRepeatFailed()).isFalse();
             assertThat(onlyMessage(telegramHelperService).getText()).isEqualTo(
                     """
-                            Ответ abc отсутствует. Пожалуйста, выберите вариант из предложенных: \
-                            Не правильный вариант: abc.
-                            Попробуйте еще раз!
-                            Выберете перевод слова: apple
+                            Ответ abc отсутствует. Пожалуйста, выберите вариант из предложенных:
+                            Выберите перевод слова: apple
                             
                             1. муровей
                             2. яблоко

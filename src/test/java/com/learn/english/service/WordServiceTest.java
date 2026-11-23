@@ -98,7 +98,7 @@ class WordServiceTest {
     class GetWordsForRepeatTests {
 
         @Test
-        @DisplayName("maps page to WordForRepeat with failed=false and 0 attempts, sorted by repeatedCount then repeatAt")
+        @DisplayName("maps page to WordForRepeat with failed=false, sorted by repeatedCount then repeatAt")
         void getWordsForRepeat_mapsAndUsesSort() {
             WordEO word = word("cat", "кот", "I have a cat");
             when(wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(
@@ -116,7 +116,6 @@ class WordServiceTest {
             assertThat(mapped.getUserId()).isEqualTo(USER_ID);
             assertThat(mapped.getId()).isEqualTo(WORD_ID);
             assertThat(mapped.isRepeatFailed()).isFalse();
-            assertThat(mapped.getCountOfAttempts()).isZero();
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
             verify(wordRepository).findAllByRepeatAtIsLessThanEqualAndUserId(
