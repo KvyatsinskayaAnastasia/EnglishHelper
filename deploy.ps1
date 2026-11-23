@@ -192,8 +192,21 @@ $lines = @(Get-Content -LiteralPath '.env' | Where-Object { $_ -notmatch '^DOCKE
 $lines += 'DOCKER_IMAGE=__IMAGE__'
 [System.IO.File]::WriteAllLines((Join-Path (Get-Location) '.env'), $lines)
 $env:DOCKER_IMAGE = '__IMAGE__'
+$dockerBin = Join-Path $env:TEMP 'english-docker-bin'
+$dockerCfg = Join-Path $env:TEMP 'english-docker-cfg'
+New-Item -ItemType Directory -Force -Path $dockerBin, $dockerCfg | Out-Null
+@(
+  '@echo off'
+  'echo credentials not found in native keychain'
+  'exit /b 1'
+) | Set-Content -Path (Join-Path $dockerBin 'docker-credential-none.cmd') -Encoding ascii
+Set-Content -Path (Join-Path $dockerCfg 'config.json') -Encoding ascii -Value '{"auths":{},"credsStore":"none"}'
+$env:PATH = "$dockerBin;$env:PATH"
+$env:DOCKER_CONFIG = $dockerCfg
 docker compose pull english-back
+if ($LASTEXITCODE -ne 0) { throw "docker compose pull завершился с кодом $LASTEXITCODE" }
 docker compose __UP__
+if ($LASTEXITCODE -ne 0) { throw "docker compose up завершился с кодом $LASTEXITCODE" }
 docker compose ps english-back
 '@
 }
