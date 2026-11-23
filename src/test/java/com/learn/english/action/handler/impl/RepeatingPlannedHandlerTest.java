@@ -19,16 +19,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_ORIGINAL;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
-import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.model.BotAction.REPEATING_WRITE_WORD_BY_TRANSLATION;
 import static com.learn.english.helper.HandlerTestHelper.MESSAGE_ID;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
+import static com.learn.english.helper.HandlerTestHelper.mainMenuCodes;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.emptyUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
@@ -120,11 +119,8 @@ class RepeatingPlannedHandlerTest {
         assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
         SendMessage message = onlyMessage(telegramHelperService);
         assertThat(message.getText()).isEqualTo("Все слова повторены!");
-        assertThat(callbackData(message)).containsExactly(
-                ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                REPEATING_PLANNED.getCode(),
-                REPEATING_RANDOM.getCode());
-        assertButtonRows(message, 2, 1);
+        assertThat(callbackData(message)).containsExactly(mainMenuCodes());
+        assertButtonRows(message, 2, 2);
         verify(userStateService).saveUserState(userState);
     }
 }

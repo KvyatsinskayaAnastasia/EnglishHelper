@@ -20,14 +20,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
-import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
-import static com.learn.english.model.BotAction.REPEATING_PLANNED;
-import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.helper.HandlerTestHelper.MESSAGE_ID;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
+import static com.learn.english.helper.HandlerTestHelper.mainMenuCodes;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
@@ -135,10 +133,7 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(userState.getRepeatingState()).isNull();
             SendMessage message = onlyMessage(telegramHelperService);
             assertThat(message.getText()).isEqualTo("Все слова повторены!");
-            assertThat(callbackData(message)).containsExactly(
-                    ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                    REPEATING_PLANNED.getCode(),
-                    REPEATING_RANDOM.getCode());
+            assertThat(callbackData(message)).containsExactly(mainMenuCodes());
             verify(wordService, never()).getRandomTranslationsByUserId(any(), any(), any());
             verify(wordService, never()).updateRepeatedWord(any(), anyBoolean());
         }
@@ -187,11 +182,8 @@ class RepeatingChooseTranslationActionHandlerTest {
             assertThat(messages).extracting(SendMessage::getText).containsExactly(
                     "Правильно!\nСлово: apple\nПеревод: яблоко",
                     "Отлично! Осталось повторить: 4");
-            assertThat(callbackData(messages.get(1))).containsExactly(
-                    ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                    REPEATING_PLANNED.getCode(),
-                    REPEATING_RANDOM.getCode());
-            assertButtonRows(messages.get(1), 2, 1);
+            assertThat(callbackData(messages.get(1))).containsExactly(mainMenuCodes());
+            assertButtonRows(messages.get(1), 2, 2);
         }
 
         @Test

@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class WordArchiveServiceTest {
@@ -62,6 +63,22 @@ class WordArchiveServiceTest {
         ArgumentCaptor<List<WordsArchiveEO>> captor = ArgumentCaptor.forClass(List.class);
         verify(wordArchiveRepository).saveAll(captor.capture());
         assertThat(captor.getValue()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("counts archived words of one user")
+    void countArchivedWords_delegates() {
+        when(wordArchiveRepository.countByUserId(7L)).thenReturn(15);
+
+        assertThat(service.countArchivedWords(7L)).isEqualTo(15);
+    }
+
+    @Test
+    @DisplayName("rejects a null user when counting archived words")
+    void countArchivedWords_null_throws() {
+        assertThatThrownBy(() -> service.countArchivedWords(null))
+                .isInstanceOf(NullPointerException.class);
+        verifyNoInteractions(wordArchiveRepository);
     }
 
     @Test

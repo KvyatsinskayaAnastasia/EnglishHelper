@@ -24,13 +24,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
-import static com.learn.english.model.BotAction.REPEATING_PLANNED;
-import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
+import static com.learn.english.helper.HandlerTestHelper.mainMenuCodes;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
 import static com.learn.english.helper.HandlerTestHelper.sentMessages;
 import static com.learn.english.helper.HandlerTestHelper.photoUpdate;
@@ -186,10 +184,7 @@ class FillingExampleWithBotHandlerTest {
         assertThat(userState.getUserStatus()).isEqualTo(UserStatus.NO_ACTIVITY);
         SendMessage message = onlyMessage(telegramHelperService);
         assertThat(message.getText()).isEqualTo("Слово apple в значении яблоко уже есть.\nВыберите действие:");
-        assertThat(callbackData(message)).containsExactly(
-                ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                REPEATING_PLANNED.getCode(),
-                REPEATING_RANDOM.getCode());
+        assertThat(callbackData(message)).containsExactly(mainMenuCodes());
         verify(userStateService).saveUserState(userState);
     }
 

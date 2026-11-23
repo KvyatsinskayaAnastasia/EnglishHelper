@@ -16,6 +16,7 @@ public enum BotAction {
     REPEATING_CHOOSE_ORIGINAL("/repeating_choose_original", "Повторение: выбрать слово по переводу", null),
     REPEATING_WRITE_WORD_BY_TRANSLATION("/repeating_write_word_by_translation", "Повторение: написать слово по переводу", null),
     SCHEDULED_REPEAT("/scheduled_repeat", null, null),
+    SUMMARY("/summary", "Сводка", null),
     EXIT("/exit", "Выйти", "Текущее действие завершено!\nВыберите действие:");
 
     private final String code;

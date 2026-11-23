@@ -3,6 +3,7 @@ package com.learn.english.service;
 import com.learn.english.entity.WordEO;
 import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.mapper.WordMapper;
+import com.learn.english.model.DailyRepeatCount;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import com.learn.english.repository.WordRepository;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -369,6 +371,68 @@ class WordServiceTest {
             verify(wordRepository).findWordEOSByRepeatedCountGreaterThanEqual(LEARNED_COUNT);
             verifyNoMoreInteractions(wordRepository);
             verifyNoInteractions(wordArchiveService);
+        }
+    }
+
+    @Nested
+    @DisplayName("countLearningWords")
+    class CountLearningWordsTests {
+
+        @Test
+        @DisplayName("counts every word still in the learning list")
+        void countLearningWords_delegates() {
+            when(wordRepository.countByUserId(USER_ID)).thenReturn(12);
+
+            assertThat(service.countLearningWords(USER_ID)).isEqualTo(12);
+        }
+    }
+
+    @Nested
+    @DisplayName("countRepeatsForNextDays")
+    class CountRepeatsForNextDaysTests {
+
+        @Test
+        @DisplayName("groups repeats by calendar day and counts overdue words as today")
+        void countRepeatsForNextDays_groupsByDateIgnoringTime() {
+            LocalDate today = LocalDate.now();
+            when(wordRepository.findRepeatAtByUserIdAndRepeatAtBefore(eq(USER_ID), any(LocalDateTime.class)))
+                    .thenReturn(List.of(
+                            today.minusDays(3).atTime(8, 15),
+                            today.atTime(23, 59),
+                            today.plusDays(1).atTime(0, 1),
+                            today.plusDays(6).atTime(18, 0),
+                            today.plusDays(7).atStartOfDay()));
+
+            List<DailyRepeatCount> plan = service.countRepeatsForNextDays(USER_ID, 7);
+
+            assertThat(plan).extracting(DailyRepeatCount::date).containsExactly(
+                    today,
+                    today.plusDays(1),
+                    today.plusDays(2),
+                    today.plusDays(3),
+                    today.plusDays(4),
+                    today.plusDays(5),
+                    today.plusDays(6));
+            assertThat(plan).extracting(DailyRepeatCount::count).containsExactly(2, 1, 0, 0, 0, 0, 1);
+
+            ArgumentCaptor<LocalDateTime> until = ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(wordRepository).findRepeatAtByUserIdAndRepeatAtBefore(eq(USER_ID), until.capture());
+            assertThat(until.getValue()).isEqualTo(today.plusDays(7).atStartOfDay());
+        }
+
+        @Test
+        @DisplayName("returns a zero for every day when nothing is scheduled")
+        void countRepeatsForNextDays_empty_returnsZeros() {
+            LocalDate today = LocalDate.now();
+            when(wordRepository.findRepeatAtByUserIdAndRepeatAtBefore(eq(USER_ID), any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+
+            List<DailyRepeatCount> plan = service.countRepeatsForNextDays(USER_ID, 7);
+
+            assertThat(plan).hasSize(7);
+            assertThat(plan).extracting(DailyRepeatCount::count).containsOnly(0);
+            assertThat(plan.get(0).date()).isEqualTo(today);
+            assertThat(plan.get(6).date()).isEqualTo(today.plusDays(6));
         }
     }
 

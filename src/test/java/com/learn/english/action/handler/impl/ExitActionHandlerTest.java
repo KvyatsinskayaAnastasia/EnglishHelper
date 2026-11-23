@@ -18,13 +18,12 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
 import java.util.List;
 
-import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.EXIT;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
-import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.helper.HandlerTestHelper.MESSAGE_ID;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
+import static com.learn.english.helper.HandlerTestHelper.mainMenuCodes;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.emptyUpdate;
 import static com.learn.english.helper.HandlerTestHelper.onlyMessage;
@@ -73,11 +72,8 @@ class ExitActionHandlerTest {
         assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
         SendMessage message = onlyMessage(telegramHelperService);
         assertThat(message.getText()).isEqualTo(BotAction.EXIT.getAnswerMessage());
-        assertThat(callbackData(message)).containsExactly(
-                ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                REPEATING_PLANNED.getCode(),
-                REPEATING_RANDOM.getCode());
-        assertButtonRows(message, 2, 1);
+        assertThat(callbackData(message)).containsExactly(mainMenuCodes());
+        assertButtonRows(message, 2, 2);
         verify(userStateService).saveUserState(userState);
     }
 }

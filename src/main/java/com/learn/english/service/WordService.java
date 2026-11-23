@@ -1,5 +1,6 @@
 package com.learn.english.service;
 
+import com.learn.english.model.DailyRepeatCount;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import lombok.NonNull;
@@ -11,6 +12,10 @@ public interface WordService {
     List<Long> getUsersWithWordsToRepeat();
 
     int countWordsForRepeat(Long userId);
+
+    int countLearningWords(Long userId);
+
+    List<DailyRepeatCount> countRepeatsForNextDays(Long userId, int days);
 
     List<WordForRepeat> getWordsForRepeatByRepeatAtIsLessThanEqualAndUserId(Long userId, Integer size);
 

@@ -22,6 +22,11 @@ public class BaseWordArchiveService implements WordArchiveService {
         wordArchiveRepository.saveAll(wordEOList.stream().map(BaseWordArchiveService::toArchive).toList());
     }
 
+    @Override
+    public int countArchivedWords(@NonNull Long userId) {
+        return wordArchiveRepository.countByUserId(userId);
+    }
+
     private static WordsArchiveEO toArchive(WordEO word) {
         return new WordsArchiveEO(word.getOriginal(), word.getTranslation(), word.getExampleSentence(),
                 word.getUserId(), word.getCreatedAt());

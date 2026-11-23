@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface WordArchiveRepository extends JpaRepository<WordsArchiveEO, UUID> {
+    int countByUserId(Long userId);
 }

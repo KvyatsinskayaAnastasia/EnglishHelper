@@ -3,6 +3,7 @@ package com.learn.english.service.impl;
 import com.learn.english.entity.WordEO;
 import com.learn.english.exception.DuplicateWordException;
 import com.learn.english.mapper.WordMapper;
+import com.learn.english.model.DailyRepeatCount;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.model.WordState;
 import com.learn.english.repository.WordRepository;
@@ -16,9 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -39,6 +43,31 @@ public class BaseWordService implements WordService {
     @Override
     public int countWordsForRepeat(Long userId) {
         return wordRepository.countAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId);
+    }
+
+    @Override
+    public int countLearningWords(Long userId) {
+        return wordRepository.countByUserId(userId);
+    }
+
+    @Override
+    public List<DailyRepeatCount> countRepeatsForNextDays(Long userId, int days) {
+        LocalDate today = LocalDate.now();
+        Map<LocalDate, Integer> counts = new LinkedHashMap<>();
+        for (int i = 0; i < days; i++) {
+            counts.put(today.plusDays(i), 0);
+        }
+        LocalDateTime until = today.plusDays(days).atStartOfDay();
+        for (LocalDateTime repeatAt : wordRepository.findRepeatAtByUserIdAndRepeatAtBefore(userId, until)) {
+            LocalDate day = repeatAt.toLocalDate();
+            if (day.isBefore(today)) {
+                day = today;
+            }
+            counts.computeIfPresent(day, (date, count) -> count + 1);
+        }
+        return counts.entrySet().stream()
+                .map(entry -> new DailyRepeatCount(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     @Override

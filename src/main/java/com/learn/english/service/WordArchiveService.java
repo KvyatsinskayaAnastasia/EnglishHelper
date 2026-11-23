@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface WordArchiveService {
     void saveArchiveWords(@NonNull List<WordEO> wordEOList);
+
+    int countArchivedWords(@NonNull Long userId);
 }

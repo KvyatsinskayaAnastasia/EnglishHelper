@@ -13,12 +13,14 @@ import static com.learn.english.model.BotAction.REPEATING_CHOOSE_TRANSLATION;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
 import static com.learn.english.model.BotAction.REPEATING_RANDOM;
 import static com.learn.english.model.BotAction.REPEATING_WRITE_WORD_BY_TRANSLATION;
+import static com.learn.english.model.BotAction.SUMMARY;
 
 public interface BotActionHandler {
     List<BotAction> BASE_OPTIONS = List.of(
             ADD_WORD_REQUEST_ORIGINAL,
             REPEATING_PLANNED,
-            REPEATING_RANDOM);
+            REPEATING_RANDOM,
+            SUMMARY);
     List<BotAction> REPEATING_OPTIONS = List.of(
             REPEATING_CHOOSE_TRANSLATION,
             REPEATING_CHOOSE_ORIGINAL,

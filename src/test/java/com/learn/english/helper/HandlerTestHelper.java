@@ -1,5 +1,6 @@
 package com.learn.english.helper;
 
+import com.learn.english.model.BotAction;
 import com.learn.english.model.WordForRepeat;
 import com.learn.english.service.TelegramHelperService;
 import org.mockito.ArgumentCaptor;
@@ -75,6 +76,15 @@ public final class HandlerTestHelper {
 
     public static WordForRepeat word(UUID id, String original, String translation) {
         return new WordForRepeat(original, translation, "example of " + original, USER_ID, id, false);
+    }
+
+    public static String[] mainMenuCodes() {
+        return new String[]{
+                BotAction.ADD_WORD_REQUEST_ORIGINAL.getCode(),
+                BotAction.REPEATING_PLANNED.getCode(),
+                BotAction.REPEATING_RANDOM.getCode(),
+                BotAction.SUMMARY.getCode()
+        };
     }
 
     public static List<String> callbackData(SendMessage message) {

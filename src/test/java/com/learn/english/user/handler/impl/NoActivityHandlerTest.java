@@ -23,9 +23,11 @@ import static com.learn.english.model.BotAction.ADD_WORD_REQUEST_ORIGINAL;
 import static com.learn.english.model.BotAction.HELP;
 import static com.learn.english.model.BotAction.REPEATING_PLANNED;
 import static com.learn.english.model.BotAction.REPEATING_RANDOM;
+import static com.learn.english.model.BotAction.SUMMARY;
 import static com.learn.english.helper.HandlerTestHelper.MESSAGE_ID;
 import static com.learn.english.helper.HandlerTestHelper.USER_ID;
 import static com.learn.english.helper.HandlerTestHelper.assertButtonRows;
+import static com.learn.english.helper.HandlerTestHelper.mainMenuCodes;
 import static com.learn.english.helper.HandlerTestHelper.callbackData;
 import static com.learn.english.helper.HandlerTestHelper.callbackUpdate;
 import static com.learn.english.helper.HandlerTestHelper.emptyUpdate;
@@ -51,6 +53,9 @@ class NoActivityHandlerTest {
     private BotActionHandler randomHandler;
 
     @Mock
+    private BotActionHandler summaryHandler;
+
+    @Mock
     private TelegramHelperService telegramHelperService;
 
     @Mock
@@ -64,6 +69,7 @@ class NoActivityHandlerTest {
         botActionHandlers.put(ADD_WORD_REQUEST_ORIGINAL, addWordHandler);
         botActionHandlers.put(REPEATING_PLANNED, plannedHandler);
         botActionHandlers.put(REPEATING_RANDOM, randomHandler);
+        botActionHandlers.put(SUMMARY, summaryHandler);
         handler = new NoActivityHandler(botActionHandlers, telegramHelperService, userStateService);
         stubSend(telegramHelperService);
     }
@@ -115,6 +121,20 @@ class NoActivityHandlerTest {
         }
 
         @Test
+        @DisplayName("opens the summary from the main menu")
+        void processAction_summary_delegates() {
+            UserState userState = new UserState(USER_ID);
+            Update update = callbackUpdate(SUMMARY.getCode());
+
+            handler.processAction(userState, update);
+
+            verify(summaryHandler).processAction(userState, update);
+            verify(userStateService, never()).saveUserState(any());
+            verify(telegramHelperService, never()).sendMessage(any());
+            verifyNoInteractions(addWordHandler, plannedHandler, randomHandler);
+        }
+
+        @Test
         @DisplayName("shows the main menu for arbitrary text")
         void processAction_unknownText_showsMenu() {
             UserState userState = new UserState(USER_ID);
@@ -123,11 +143,8 @@ class NoActivityHandlerTest {
 
             SendMessage message = onlyMessage(telegramHelperService);
             assertThat(message.getText()).isEqualTo(HELP.getAnswerMessage());
-            assertThat(callbackData(message)).containsExactly(
-                    ADD_WORD_REQUEST_ORIGINAL.getCode(),
-                    REPEATING_PLANNED.getCode(),
-                    REPEATING_RANDOM.getCode());
-            assertButtonRows(message, 2, 1);
+            assertThat(callbackData(message)).containsExactly(mainMenuCodes());
+            assertButtonRows(message, 2, 2);
             assertThat(userState.getLastBotCommandMessageId()).isEqualTo(MESSAGE_ID);
             verify(userStateService).saveUserState(userState);
             verifyNoInteractions(addWordHandler, plannedHandler, randomHandler);
