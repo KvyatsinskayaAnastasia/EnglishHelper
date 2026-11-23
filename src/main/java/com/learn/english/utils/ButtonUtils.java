@@ -1,7 +1,7 @@
 package com.learn.english.utils;
 
 import com.learn.english.model.BotAction;
-import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.util.CollectionUtils;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -28,7 +28,9 @@ public class ButtonUtils {
     }
 
     private static String addButtonLabelsToText(String message, List<String> buttonLabels) {
-        if (CollectionUtils.isEmpty(buttonLabels)) return message;
+        if (CollectionUtils.isEmpty(buttonLabels)) {
+            return message;
+        }
 
         StringBuilder sb = new StringBuilder(message).append("\n");
         IntStream.range(0, buttonLabels.size())

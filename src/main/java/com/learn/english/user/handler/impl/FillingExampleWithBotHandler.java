@@ -53,13 +53,13 @@ public class FillingExampleWithBotHandler extends FillingExampleStatusHandler {
     }
 
     private static void applyProposal(UserState userState, WordState wordState, String example) {
-        if (userState.getProposesState() == null
-                || CollectionUtils.isEmpty(userState.getProposesState().getExamples())
-                || !StringUtils.isNumeric(example)) {
+        List<String> examples = userState.getProposesState() == null
+                ? null
+                : userState.getProposesState().getExamples();
+        if (CollectionUtils.isEmpty(examples) || !StringUtils.isNumeric(example)) {
             return;
         }
         int numericAnswer = Integer.parseInt(example);
-        List<String> examples = userState.getProposesState().getExamples();
         if (examples.size() >= numericAnswer) {
             wordState.setExampleSentence(examples.get(numericAnswer - 1));
         }
