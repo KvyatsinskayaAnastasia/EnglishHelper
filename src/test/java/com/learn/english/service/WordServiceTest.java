@@ -72,7 +72,7 @@ class WordServiceTest {
 
             LocalDateTime before = LocalDateTime.now();
             List<Long> users = service.getUsersWithWordsToRepeat();
-            LocalDateTime after = LocalDateTime.now();
+            LocalDateTime after = LocalDate.now().plusDays(1).atStartOfDay();
 
             assertThat(users).containsExactly(USER_ID);
             ArgumentCaptor<LocalDateTime> captor = ArgumentCaptor.forClass(LocalDateTime.class);

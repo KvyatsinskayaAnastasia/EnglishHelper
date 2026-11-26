@@ -11,6 +11,7 @@ import com.learn.english.service.WordArchiveService;
 import com.learn.english.service.WordService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class BaseWordService implements WordService {
     private static final int REPEATED_COUNT_FOR_LEARNED = 8;
+    public static final ZoneId BASE_ZONE_ID = ZoneId.of("Europe/Moscow");
 
     private final WordRepository wordRepository;
     private final WordMapper wordMapper;
@@ -37,12 +40,17 @@ public class BaseWordService implements WordService {
 
     @Override
     public List<Long> getUsersWithWordsToRepeat() {
-        return wordRepository.findDistinctUsersWithWordsToRepeat(LocalDateTime.now());
+        return wordRepository.findDistinctUsersWithWordsToRepeat(getAtEndOfDay());
+    }
+
+    @NotNull
+    private static LocalDateTime getAtEndOfDay() {
+        return LocalDate.now(BASE_ZONE_ID).plusDays(1).atStartOfDay();
     }
 
     @Override
     public int countWordsForRepeat(Long userId) {
-        return wordRepository.countAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId);
+        return wordRepository.countAllByRepeatAtIsLessThanEqualAndUserId(getAtEndOfDay(), userId);
     }
 
     @Override
@@ -52,7 +60,7 @@ public class BaseWordService implements WordService {
 
     @Override
     public List<DailyRepeatCount> countRepeatsForNextDays(Long userId, int days) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(BASE_ZONE_ID);
         Map<LocalDate, Integer> counts = new LinkedHashMap<>();
         for (int i = 0; i < days; i++) {
             counts.put(today.plusDays(i), 0);
@@ -72,7 +80,7 @@ public class BaseWordService implements WordService {
 
     @Override
     public List<WordForRepeat> getWordsForRepeatByRepeatAtIsLessThanEqualAndUserId(Long userId, Integer size) {
-        return wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(LocalDateTime.now(), userId,
+        return wordRepository.findAllByRepeatAtIsLessThanEqualAndUserId(getAtEndOfDay(), userId,
                         PageRequest.of(0, size, Sort.by("repeatedCount").ascending()
                                 .and(Sort.by("repeatAt").ascending()))).stream()
                 .map(BaseWordService::toWordForRepeat)

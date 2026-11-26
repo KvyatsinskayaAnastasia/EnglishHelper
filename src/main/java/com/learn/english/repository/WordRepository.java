@@ -24,7 +24,7 @@ public interface WordRepository extends JpaRepository<WordEO, UUID>, PagingAndSo
             SELECT w.repeatAt FROM WordEO w
             WHERE w.userId = :userId AND w.repeatAt < :until
             """)
-    List<LocalDateTime> findRepeatAtByUserIdAndRepeatAtBefore(@Param("userId") Long userId,
+    List<LocalDateTime>  findRepeatAtByUserIdAndRepeatAtBefore(@Param("userId") Long userId,
                                                               @Param("until") LocalDateTime until);
 
     boolean existsByOriginalAndTranslationAndUserId(String original, String translation, Long userId);
